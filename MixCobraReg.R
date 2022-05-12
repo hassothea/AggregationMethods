@@ -1244,10 +1244,10 @@ predict_Mix <- function(fitted_models,
 
 #### --------------------------------------------------------------------- ####
 
-# Function : `MixCOBRAReg` 
+# Function : `MixCobraReg` 
 # ========================
  
-MixCOBRAReg <- function(train_input, 
+MixCobraReg <- function(train_input, 
                         train_response,
                         test_input,
                         train_predictions = NULL,
