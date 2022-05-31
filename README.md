@@ -1,6 +1,6 @@
 # AggregationMethods
 
-This repository contains all the source codes of consensual aggregation methods implemented in `R` programming. The explanations of each function and algorithm are available in my webpage: https://hassothea.github.io/publications/
+This repository contains all the source codes of consensual aggregation methods implemented in `R` programming. 
 
 &#128270; How to download & run the codes?
 ===
@@ -16,3 +16,12 @@ To run the codes, you can <span style="color: #097BC1">`clone`</span> the reposi
     `devtools::source_url("https://raw.githubusercontent.com/hassothea/AggregationMethods/main/file.R")`
 
 where `file.R` is the file name contained in this repository which you want to import into your `Rstudio`.
+
+&#128214; Documentation
+===
+
+The explanations of each and algorithm are available in my webpage:
+
+- https://hassothea.github.io/publications/
+- https://hassothea.github.io/publications/
+- https://hassothea.github.io/publications/
