@@ -17,7 +17,6 @@ To run the codes, you can <span style="color: #097BC1">`clone`</span> the reposi
 where `file.R` is the file name contained in this repository which you want to import into your `Rstudio`.
 
 ## &#128214; Documentation
-===
 
 The explanations of each and algorithm are available in my webpage:
 
