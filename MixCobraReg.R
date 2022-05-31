@@ -1265,6 +1265,7 @@ MixCobraReg <- function(train_input,
                         setGradParam = setGradParameter_Mix(),
                         setGridParam = setGridParameter_Mix()){
   # build machines + tune parameter
+  cat("\n\nMixCobra for regression\n-----------------------\n")
   fit_mod <- fit_parameter_Mix(train_input = train_input, 
                                train_response = train_response,
                                train_predictions = train_predictions,
