@@ -1,9 +1,8 @@
-# AggregationMethods
+# `AggregationMethods`
 
 This repository contains all the source codes of consensual aggregation methods implemented in `R` programming. 
 
-&#128270; How to download & run the codes?
-===
+## &#128270; How to download & run the codes?
 
 To run the codes, you can <span style="color: #097BC1">`clone`</span> the repository directly or simply load the <span style="color: #097BC1">`R script`</span> source files from this repository using [devtools](https://cran.r-project.org/web/packages/devtools/index.html) package in `Rstudio` as follows:
 
@@ -17,7 +16,7 @@ To run the codes, you can <span style="color: #097BC1">`clone`</span> the reposi
 
 where `file.R` is the file name contained in this repository which you want to import into your `Rstudio`.
 
-&#128214; Documentation
+## &#128214; Documentation
 ===
 
 The explanations of each and algorithm are available in my webpage:
