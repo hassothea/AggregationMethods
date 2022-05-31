@@ -18,7 +18,7 @@ where `file.R` is the file name contained in this repository which you want to i
 
 ## &#128214; Documentation
 
-The explanations of each and algorithm are available in my webpage:
+The explanations of all the aggregation methods are available in my webpage:
 
 - https://hassothea.github.io/publications/
 - https://hassothea.github.io/publications/
