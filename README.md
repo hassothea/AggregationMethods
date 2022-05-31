@@ -1,6 +1,6 @@
 # AggregationMethods
 
-This repository contains all the source codes of consensual aggregation methods implemented in `R` programming. All codes contained in each file are built with recent version of `R` software (version $>$ 4.1, available [here](https://cran.r-project.org/bin/windows/base/)) and `Rstudio` (version > `2022.02.2+485`, available [here](https://www.rstudio.com/products/rstudio/download/#download)). The following packages are used:
+This repository contains all the source codes of consensual aggregation methods implemented in `R` programming. All codes contained in each file are built with recent version of `R` software (version $>$ 4.1, available [here](https://cran.r-project.org/bin/windows/base/)) and `Rstudio` (version > `2022.02.2+485`, available [here](https://www.rstudio.com/products/rstudio/download/#download)).
 
 ## &#128270; How to download & run the codes?
 
