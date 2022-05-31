@@ -1066,7 +1066,7 @@ kernelAggReg <- function(train_design,
                          setGradParam = setGradParameter(),
                          setGridParam = setGridParameter()){
   #### build machines + tune parameter ###
-  cat("\n\nKernel-based consensual aggregation method\n-------------------------------------------\n")
+  cat("\n\nKernel-based consensual aggregation method\n------------------------------------------\n")
   fit_mod <- fit_parameter(train_design = train_design, 
                            train_response = train_response,
                            scale_input = scale_input,
