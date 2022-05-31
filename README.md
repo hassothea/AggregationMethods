@@ -5,7 +5,7 @@ This repository contains all the source codes of consensual aggregation methods 
 &#128270; How to download & run the codes?
 ===
 
-To run the codes, you can <span style="color: #097BC1">`clone`</span> the repository directly or simply load the <span style="color: #097BC1">`R script`</span> source files from the repository using [devtools](https://cran.r-project.org/web/packages/devtools/index.html) package in **Rstudio** as follow:
+To run the codes, you can <span style="color: #097BC1">`clone`</span> the repository directly or simply load the <span style="color: #097BC1">`R script`</span> source files from this repository using [devtools](https://cran.r-project.org/web/packages/devtools/index.html) package in `Rstudio` as follows:
 
 1. Install [devtools](https://cran.r-project.org/web/packages/devtools/index.html) package using command: 
 
