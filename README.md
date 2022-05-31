@@ -5,8 +5,6 @@ This repository contains all the source codes of consensual aggregation methods 
 &#128270; How to download & run the codes?
 ===
 
----
-
 To run the codes, you can <span style="color: #097BC1">`clone`</span> the repository directly or simply load the <span style="color: #097BC1">`R script`</span> source files from this repository using [devtools](https://cran.r-project.org/web/packages/devtools/index.html) package in `Rstudio` as follows:
 
 1. Install [devtools](https://cran.r-project.org/web/packages/devtools/index.html) package using command: 
@@ -17,4 +15,4 @@ To run the codes, you can <span style="color: #097BC1">`clone`</span> the reposi
 
     `devtools::source_url("https://raw.githubusercontent.com/hassothea/AggregationMethods/main/file.R")`
 
----
+where `file.R` is the file name contained in this repository which you want to import into your `Rstudio`.
