@@ -20,6 +20,5 @@ where `file.R` is the file name contained in this repository which you want to i
 
 The explanations of all the aggregation methods are available in my webpage:
 
-- https://hassothea.github.io/publications/
-- https://hassothea.github.io/publications/
-- https://hassothea.github.io/publications/
+-  [`KernelAggReg`](https://hassothea.github.io/files/KernelAggReg/KernelAggReg.html).
+- [`MixCobraReg`](https://hassothea.github.io/files/KernelAggReg/MixCobraReg.html).
