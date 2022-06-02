@@ -18,7 +18,7 @@ where `file.R` is the file name contained in this repository which you want to i
 
 ## &#128214; Documentation
 
-The explanations of all the aggregation methods are available in my webpage:
+The documentation and explanation of all the aggregation methods are available on my webpage as listed below:
 
 - `KernelAggReg` : see [KernelAggReg.html](https://hassothea.github.io/files/KernelAggReg/KernelAggReg.html).
 - `MixCobraReg` : see [MixCobraReg.html](https://hassothea.github.io/files/KernelAggReg/MixCobraReg.html).
