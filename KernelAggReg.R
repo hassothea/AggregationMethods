@@ -291,10 +291,8 @@ gradOptimizer <- function(obj_fun,
   start.time <- Sys.time()
   #### Optimization step:
   spec_print <- function(x) return(ifelse(x > 1e-6, 
-                                          format(x, digit = 6, nsmall = 6), 
-                                          format(x, scientific = TRUE, digit = 6, nsmall = 6)))
-  collect_val <- c()
-  gradients <- c()
+                                          format(x, digit = 4, nsmall = 4), 
+                                          format(x, scientific = TRUE, digit = 4, nsmall = 4)))
   if (is.null(setParameter$val_init)){
     val_params <- seq(setParameter$min_val, 
                       setParameter$max_val, 
@@ -312,6 +310,8 @@ gradOptimizer <- function(obj_fun,
       x0 = val0, 
       heps = .Machine$double.eps ^ (1 / 3))
   }
+  collect_val <- val
+  gradients <- grad_
   if(setParameter$print_step){
     cat("\n* Gradient descent algorithm ...")
     cat("\n  Step\t|  Parameter\t|  Gradient\t|  Threshold \n")
