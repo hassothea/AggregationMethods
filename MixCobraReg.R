@@ -873,7 +873,7 @@ fit_parameter_Mix <- function(train_input,
                                   .dist_matrix,
                                   .train_response2){
     kern_fun <- function(x, id, D1, D2){
-      tem0 <- as.matrix(1- (x[1]*D1+x[2]*D))
+      tem0 <- as.matrix(1- (x[1]*D1+x[2]*D2))
       tem0[tem0 < 0] = 0
       y_hat <- .train_response2[.dist_matrix$id_shuffle != id] %*% tem0/colSums(tem0)
       return(sum((y_hat - .train_response2[.dist_matrix$id_shuffle == id])^2))
