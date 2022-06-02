@@ -340,7 +340,7 @@ gradOptimizer_Mix <- function(obj_fun,
     cat("\n  Step\t|  alpha    ;  beta   \t|  Gradient (alpha ; beta)\t|  Threshold \n")
     cat(" ", rep("-", 80), sep = "")
     cat("\n   0 \t| ", spec_print(val0[1])," ; ", spec_print(val0[2]),
-        "\t| ", spec_print(grad_[1], 6), " ; ", spec_print(grad_[2], 5), 
+        "\t| ", spec_print(grad_[1], 4), " ; ", spec_print(grad_[2], 4), 
         " \t| ", setParameter$threshold, "\n")
     cat(" ", rep("-",80), sep = "")
   }
@@ -405,7 +405,7 @@ gradOptimizer_Mix <- function(obj_fun,
       i <- i + 1
       if(setParameter$print_step){
         cat("\n  ", i, "\t| ", spec_print(val[1], 4), " ; ", spec_print(val[2], 4), 
-            "\t| ", spec_print(grad_[1], 5), " ; ", spec_print(grad_[2], 5), 
+            "\t| ", spec_print(grad_[1], 4), " ; ", spec_print(grad_[2], 4), 
             "\t| ", test_threshold, "\r")
       }
       collect_val <- rbind(collect_val, val)
@@ -449,7 +449,7 @@ gradOptimizer_Mix <- function(obj_fun,
       )
       if(setParameter$print_step){
         cat("\n  ", i, "\t| ", spec_print(val[1], 4), " ; ", spec_print(val[2], 4), 
-            "\t| ", spec_print(grad_[1], 5), " ; ", spec_print(grad_[2], 5), 
+            "\t| ", spec_print(grad_[1], 4), " ; ", spec_print(grad_[2], 4), 
             "\t| ", test_threshold, "\r")
       }
       i <- i + 1
@@ -476,7 +476,7 @@ gradOptimizer_Mix <- function(obj_fun,
   }
   if (setParameter$figure) {
     if(is.null(setParameter$title)){
-      tit <- paste("<b> L1 norm of gradient as a function of</b> (",
+      tit <- paste("<b> L1 norm of gradient VS</b> (",
                    setParameter$axes[1],",", 
                    setParameter$axes[2], 
                    ")")
@@ -623,7 +623,7 @@ gridOptimizer_Mix <- function(obj_func,
   }
   if(setParameter$figure){
     if(is.null(setParameter$title)){
-      tit <- paste("<b> Cross-validation risk as a function of</b> (",
+      tit <- paste("<b> Cross-validation risk VS</b> (",
                    setParameter$axes[1],",", 
                    setParameter$axes[2],
                    ")")
