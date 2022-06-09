@@ -20,5 +20,6 @@ where `file.R` is the file name contained in this repository which you want to i
 
 The documentation and explanation of all the aggregation methods are available on my webpage as listed below:
 
-- `KernelAggReg` : see [KernelAggReg.html](https://hassothea.github.io/files/KernelAggReg/KernelAggReg.html).
-- `MixCobraReg` : see [MixCobraReg.html](https://hassothea.github.io/files/KernelAggReg/MixCobraReg.html).
+- `KernelAggReg` : for regression, see [KernelAggReg.html](https://hassothea.github.io/files/KernelAggReg/KernelAggReg.html).
+- `KernelAggClass` : for classification, see [KernelAggClass.html](https://hassothea.github.io/files/KernelAggReg/KernelAggClass.html).
+- `MixCobraReg` : for regression, see [MixCobraReg.html](https://hassothea.github.io/files/KernelAggReg/MixCobraReg.html).
