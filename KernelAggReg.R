@@ -60,7 +60,8 @@ generateMachines <- function(train_input,
                              scale_input = FALSE,
                              machines = NULL, 
                              splits = 0.5, 
-                             basicMachineParam = setBasicParameter()){
+                             basicMachineParam = setBasicParameter(),
+                             silent = FALSE){
   lambda = basicMachineParam$lambda
   k <- basicMachineParam$k 
   ntree <- basicMachineParam$ntree 
@@ -199,8 +200,10 @@ generateMachines <- function(train_input,
   
   pred_D2 <- c()
   all_mod <- c()
-  cat("\n* Building basic machines ...\n")
-  cat("\t~ Progress:")
+  if(!silent){
+    cat("\n* Building basic machines ...\n")
+    cat("\t~ Progress:")
+  }
   for(m in 1:M){
     if(mach[m] %in% c("tree", "rf")){
       x0_test <- df_train_x2
@@ -221,7 +224,9 @@ generateMachines <- function(train_input,
     names(tem0) <- names(tem1) <- paste0(mach[m], 1:length(para_))
     pred_D2 <- bind_cols(pred_D2, as_tibble(tem0))
     all_mod[[mach[m]]] <- tem1
-    cat(" ... ", round(m/M, 2)*100L,"%", sep = "")
+    if(!silent){
+      cat(" ... ", round(m/M, 2)*100L,"%", sep = "")
+    }
   }
   if(scale_input){
     return(list(predict2 = pred_D2,
@@ -249,12 +254,12 @@ setGradParameter <- function(val_init = NULL,
                              n_tries = 10, 
                              rate = NULL, 
                              min_val = 1e-4,
-                             max_val = 30,
+                             max_val = 0.1,
                              max_iter = 300, 
                              print_step = TRUE, 
                              print_result = TRUE,
                              figure = TRUE, 
-                             coef_auto = 1,
+                             coef_auto = 0.005,
                              coef_log = 1,
                              coef_sqrt = 1,
                              coef_lm = 1,
@@ -287,12 +292,15 @@ setGradParameter <- function(val_init = NULL,
 # Function: `gradOptimizer`
 # -------------------------
 gradOptimizer <- function(obj_fun,
-                          setParameter = setGradParameter()) {
+                          setParameter = setGradParameter(),
+                          silent = FALSE) {
   start.time <- Sys.time()
   #### Optimization step:
   spec_print <- function(x) return(ifelse(x > 1e-6, 
-                                          format(x, digit = 4, nsmall = 4), 
-                                          format(x, scientific = TRUE, digit = 4, nsmall = 4)))
+                                          format(x, digit = 6, nsmall = 6), 
+                                          format(x, scientific = TRUE, digit = 6, nsmall = 6)))
+  collect_val <- c()
+  gradients <- c()
   if (is.null(setParameter$val_init)){
     val_params <- seq(setParameter$min_val, 
                       setParameter$max_val, 
@@ -310,9 +318,7 @@ gradOptimizer <- function(obj_fun,
       x0 = val0, 
       heps = .Machine$double.eps ^ (1 / 3))
   }
-  collect_val <- val
-  gradients <- grad_
-  if(setParameter$print_step){
+  if(setParameter$print_step & !silent){
     cat("\n* Gradient descent algorithm ...")
     cat("\n  Step\t|  Parameter\t|  Gradient\t|  Threshold \n")
     cat(" ", rep("-", 51), sep = "")
@@ -377,7 +383,7 @@ gradOptimizer <- function(obj_fun,
         heps = .Machine$double.eps ^ (1 / 3)
       )
       i <- i + 1
-      if(setParameter$print_step){
+      if(setParameter$print_step & !silent){
         cat("\n  ", i, "\t| ", spec_print(val), 
             "\t| ", spec_print(grad_), 
             "\t| ", test_threshold, "\r")
@@ -420,7 +426,7 @@ gradOptimizer <- function(obj_fun,
         heps = .Machine$double.eps ^ (1 / 3)
       )
       i <- i + 1
-      if(setParameter$print_step){
+      if(setParameter$print_step & !silent){
         cat("\n  ", i, "\t| ", spec_print(val), 
             "\t| ", spec_print(grad_), 
             "\t| ", test_threshold, "\r")
@@ -431,7 +437,7 @@ gradOptimizer <- function(obj_fun,
   }
   opt_ep <- val
   opt_risk <- obj_fun(opt_ep)
-  if(setParameter$print_step){
+  if(setParameter$print_step& !silent){
     cat(rep("-", 55), sep = "")
     if(grad_ == 0){
       cat("\n Stopped| ", spec_print(val), 
@@ -443,7 +449,7 @@ gradOptimizer <- function(obj_fun,
           "\t| ", test_threshold)
     } 
   }
-  if(setParameter$print_result){
+  if(setParameter$print_result & !silent){
     cat("\n ~ Observed parameter:", opt_ep, " in",i, "iterations.")
   }
   if (setParameter$figure) {
@@ -497,7 +503,8 @@ setGridParameter <- function(min_val = 1e-4,
 # -------------------------
 
 gridOptimizer <- function(obj_func,
-                          setParameter = setGridParameter()){
+                          setParameter = setGridParameter(),
+                          silent = FALSE){
   t0 <- Sys.time()
   if(is.null(setParameter$parameters)){
     param <- seq(setParameter$min_val, 
@@ -511,7 +518,7 @@ gridOptimizer <- function(obj_func,
   id_opt <- which.min(risk)
   opt_ep <- param[id_opt]
   opt_risk <- risk[id_opt]
-  if(setParameter$print_result){
+  if(setParameter$print_result & !silent){
     cat("\n* Grid search algorithm...", "\n ~ Observed parameter :", opt_ep)
   }
   if(setParameter$figure){
@@ -611,7 +618,8 @@ fit_parameter <- function(train_design,
                           optimizeMethod = "grad",
                           setBasicMachineParam = setBasicParameter(),
                           setGradParam = setGradParameter(),
-                          setGridParam = setGridParameter()){
+                          setGridParam = setGridParameter(),
+                          silent = FALSE){
   kernels_lookup <- c("gaussian", "epanechnikov", "biweight", "triweight", "triangular", "naive")
   kernel_real <- kernels %>%
     sapply(FUN = function(x) return(match.arg(x, kernels_lookup)))
@@ -621,7 +629,8 @@ fit_parameter <- function(train_design,
                               scale_input = scale_input,
                               machines = machines,
                               splits = splits,
-                              basicMachineParam = setBasicMachineParam)
+                              basicMachineParam = setBasicMachineParam,
+                              silent = silent)
   } else{
     mach2 <- list(predict2 = train_design,
                   models = colnames(train_design),
@@ -816,7 +825,8 @@ fit_parameter <- function(train_design,
   parameters <- map2(.x = kernels,
                      .y = optMethods, 
                      .f = ~ list_optimizer[[.y]](obj_fun = error_func[[.x]],
-                                                 setParameter = list_param[[.y]]))
+                                                 setParameter = list_param[[.y]],
+                                                 silent = silent))
   names(parameters) <- paste0(kernel_real, "_", optMethods)
   return(list(opt_parameters = parameters,
               add_parameters = list(scale_input = scale_input,
@@ -1064,9 +1074,9 @@ kernelAggReg <- function(train_design,
                          optimizeMethod = "grad",
                          setBasicMachineParam = setBasicParameter(),
                          setGradParam = setGradParameter(),
-                         setGridParam = setGridParameter()){
-  #### build machines + tune parameter ###
-  cat("\n\nKernel-based consensual aggregation method\n------------------------------------------\n")
+                         setGridParam = setGridParameter(),
+                         silent = FALSE){
+  #### build machines + tune parameter
   fit_mod <- fit_parameter(train_design = train_design, 
                            train_response = train_response,
                            scale_input = scale_input,
@@ -1081,7 +1091,8 @@ kernelAggReg <- function(train_design,
                            optimizeMethod = optimizeMethod,
                            setBasicMachineParam = setBasicMachineParam,
                            setGradParam = setGradParam,
-                           setGridParam = setGridParam)
+                           setGridParam = setGridParam,
+                           silent = silent)
   #### prediction
   pred <- predict_agg(fitted_models = fit_mod,
                       new_data = test_design,
