@@ -67,7 +67,8 @@ generateMachines_Mix <- function(train_input,
                              scale_machine = TRUE,
                              machines = NULL, 
                              splits = 0.5, 
-                             basicMachineParam = setBasicParameter_Mix()){
+                             basicMachineParam = setBasicParameter_Mix(),
+                             silent = FALSE){
   lambda = basicMachineParam$lambda
   k <- basicMachineParam$k 
   ntree <- basicMachineParam$ntree 
@@ -207,8 +208,10 @@ generateMachines_Mix <- function(train_input,
   
   pred_D2 <- c()
   all_mod <- c()
-  cat("\n* Building basic machines ...\n")
-  cat("\t~ Progress:")
+  if(!silent){
+    cat("\n* Building basic machines ...\n")
+    cat("\t~ Progress:")
+  }
   for(m in 1:M){
     if(mach[m] %in% c("tree", "rf")){
       x0_test <- df_train_x2
@@ -229,7 +232,9 @@ generateMachines_Mix <- function(train_input,
     names(tem0) <- names(tem1) <- paste0(mach[m], 1:length(para_))
     pred_D2 <- bind_cols(pred_D2, as_tibble(tem0))
     all_mod[[mach[m]]] <- tem1
-    cat(" ... ", round(m/M, 2)*100L,"%", sep = "")
+    if(!silent){
+      cat(" ... ", round(m/M, 2)*100L,"%", sep = "")
+    }
   }
   max_M <- min_M <- NULL
   pred_D2_ <- pred_D2
@@ -307,7 +312,8 @@ setGradParameter_Mix <- function(val_init = NULL,
 ### -----------------------------
 
 gradOptimizer_Mix <- function(obj_fun,
-                          setParameter = setGradParameter_Mix()) {
+                          setParameter = setGradParameter_Mix(),
+                          silent = FALSE) {
   start.time <- Sys.time()
   # Optimization step:
   # ==================
@@ -335,12 +341,12 @@ gradOptimizer_Mix <- function(obj_fun,
       x0 = val0, 
       heps = .Machine$double.eps ^ (1 / 3))
   }
-  if(setParameter$print_step){
+  if(setParameter$print_step & !silent){
     cat("\n* Gradient descent algorithm ...")
     cat("\n  Step\t|  alpha    ;  beta   \t|  Gradient (alpha ; beta)\t|  Threshold \n")
     cat(" ", rep("-", 80), sep = "")
     cat("\n   0 \t| ", spec_print(val0[1])," ; ", spec_print(val0[2]),
-        "\t| ", spec_print(grad_[1], 4), " ; ", spec_print(grad_[2], 4), 
+        "\t| ", spec_print(grad_[1], 6), " ; ", spec_print(grad_[2], 5), 
         " \t| ", setParameter$threshold, "\n")
     cat(" ", rep("-",80), sep = "")
   }
@@ -403,9 +409,9 @@ gradOptimizer_Mix <- function(obj_fun,
         heps = .Machine$double.eps ^ (1 / 3)
       )
       i <- i + 1
-      if(setParameter$print_step){
+      if(setParameter$print_step & !silent){
         cat("\n  ", i, "\t| ", spec_print(val[1], 4), " ; ", spec_print(val[2], 4), 
-            "\t| ", spec_print(grad_[1], 4), " ; ", spec_print(grad_[2], 4), 
+            "\t| ", spec_print(grad_[1], 5), " ; ", spec_print(grad_[2], 5), 
             "\t| ", test_threshold, "\r")
       }
       collect_val <- rbind(collect_val, val)
@@ -447,9 +453,9 @@ gradOptimizer_Mix <- function(obj_fun,
         x0 = val0, 
         heps = .Machine$double.eps ^ (1 / 3)
       )
-      if(setParameter$print_step){
+      if(setParameter$print_step & !silent){
         cat("\n  ", i, "\t| ", spec_print(val[1], 4), " ; ", spec_print(val[2], 4), 
-            "\t| ", spec_print(grad_[1], 4), " ; ", spec_print(grad_[2], 4), 
+            "\t| ", spec_print(grad_[1], 5), " ; ", spec_print(grad_[2], 5), 
             "\t| ", test_threshold, "\r")
       }
       i <- i + 1
@@ -459,7 +465,7 @@ gradOptimizer_Mix <- function(obj_fun,
   }
   opt_ep <- val
   opt_risk <- obj_fun(opt_ep)
-  if(setParameter$print_step){
+  if(setParameter$print_step & !silent){
     cat(rep("-", 80), sep = "")
     if(sum(abs(grad_)) == 0){
       cat("\n Stopped| ", spec_print(val[1], 4), " ; ", spec_print(val[2], 4), 
@@ -471,12 +477,12 @@ gradOptimizer_Mix <- function(obj_fun,
           "\t| ", test_threshold)
     } 
   }
-  if(setParameter$print_result){
+  if(setParameter$print_result & !silent){
     cat("\n ~ Observed parameter: (alpha, beta) = (", opt_ep[1], ", ", opt_ep[2], ") in",i, "itertaions.")
   }
   if (setParameter$figure) {
     if(is.null(setParameter$title)){
-      tit <- paste("<b> L1 norm of gradient VS</b> (",
+      tit <- paste("<b> L1 norm of gradient as a function of</b> (",
                    setParameter$axes[1],",", 
                    setParameter$axes[2], 
                    ")")
@@ -592,7 +598,8 @@ setGridParameter_Mix <- function(min_alpha = 1e-5,
 ### Function: `gridOptimizer_Mix`
 
 gridOptimizer_Mix <- function(obj_func,
-                          setParameter = setGridParameter_Mix()){
+                          setParameter = setGridParameter_Mix(),
+                          silent = FALSE){
   t0 <- Sys.time()
   if(is.null(setParameter$parameters)){
     param_list <- list(alpha =  rep(seq(setParameter$min_alpha, 
@@ -615,7 +622,7 @@ gridOptimizer_Mix <- function(obj_func,
   id_opt <- which.min(risk)
   opt_ep <- c(param_list$alpha[id_opt], param_list$beta[id_opt])
   opt_risk <- risk[id_opt]
-  if(setParameter$print_result){
+  if(setParameter$print_result & !silent){
     cat("\n* Grid search algorithm...", "\n ~ Observed parameter: (alpha, beta) = (", opt_ep[1], 
         ", ", 
         opt_ep[2], ")", 
@@ -623,7 +630,7 @@ gridOptimizer_Mix <- function(obj_func,
   }
   if(setParameter$figure){
     if(is.null(setParameter$title)){
-      tit <- paste("<b> Cross-validation risk VS</b> (",
+      tit <- paste("<b> Cross-validation risk as a function of</b> (",
                    setParameter$axes[1],",", 
                    setParameter$axes[2],
                    ")")
@@ -758,31 +765,33 @@ dist_matrix_Mix <- function(basicMachines,
 ## -----------------
 
 fit_parameter_Mix <- function(train_input, 
-                              train_response,
-                              train_predictions = NULL,
-                              machines = NULL, 
-                              scale_input = TRUE,
-                              scale_machine = TRUE,
-                              splits = 0.5, 
-                              n_cv = 5,
-                              inv_sigma = sqrt(.5),
-                              alp = 2,
-                              kernels = "gaussian",
-                              optimizeMethod = "grad",
-                              setBasicMachineParam = setBasicParameter_Mix(),
-                              setGradParam = setGradParameter_Mix(),
-                              setGridParam = setGridParameter_Mix()){
+                          train_response,
+                          train_predictions = NULL,
+                          machines = NULL, 
+                          scale_input = TRUE,
+                          scale_machine = TRUE,
+                          splits = 0.5, 
+                          n_cv = 5,
+                          inv_sigma = sqrt(.5),
+                          alp = 2,
+                          kernels = "gaussian",
+                          optimizeMethod = "grad",
+                          setBasicMachineParam = setBasicParameter_Mix(),
+                          setGradParam = setGradParameter_Mix(),
+                          setGridParam = setGridParameter_Mix(),
+                          silent = FALSE){
   kernels_lookup <- c("gaussian", "epanechnikov", "biweight", "triweight", "triangular", "naive")
   kernel_real <- kernels %>%
     sapply(FUN = function(x) return(match.arg(x, kernels_lookup)))
   if(is.null(train_predictions)){
     mach2 <- generateMachines_Mix(train_input = train_input,
-                                  train_response = train_response,
-                                  scale_input = scale_input,
-                                  scale_machine = scale_machine,
-                                  machines = machines,
-                                  splits = splits,
-                                  basicMachineParam = setBasicMachineParam)
+                              train_response = train_response,
+                              scale_input = scale_input,
+                              scale_machine = scale_machine,
+                              machines = machines,
+                              splits = splits,
+                              basicMachineParam = setBasicMachineParam,
+                              silent = silent)
   }else{
     mach2 <- list(fitted_remain = train_predictions,
                   models = NULL,
@@ -823,23 +832,23 @@ fit_parameter_Mix <- function(train_input,
     ker <- kernel_real[k_]
     if(ker == "naive"){
       dist_all[["naive"]] <- dist_matrix_Mix(basicMachines = mach2,
-                                             n_cv = n_cv,
-                                             kernel = "naive",
-                                             id_shuffle = id_shuf)
+                                         n_cv = n_cv,
+                                         kernel = "naive",
+                                         id_shuffle = id_shuf)
     } else{
       if(ker == "triangular"){
         dist_all[["triangular"]] <- dist_matrix_Mix(basicMachines = mach2,
-                                                    n_cv = n_cv,
-                                                    kernel = "triangular",
-                                                    id_shuffle = id_shuf)
+                                                n_cv = n_cv,
+                                                kernel = "triangular",
+                                                id_shuffle = id_shuf)
       } else{
         if(if_euclid){
           dist_all[[ker]] <- dist_all[[id_euclid]]
         } else{
           dist_all[[ker]] <- dist_matrix_Mix(basicMachines = mach2,
-                                             n_cv = n_cv,
-                                             kernel = ker,
-                                             id_shuffle = id_shuf)
+                                         n_cv = n_cv,
+                                         kernel = ker,
+                                         id_shuffle = id_shuf)
           id_euclid <- ker
           if_euclid <- TRUE
         }
@@ -873,7 +882,7 @@ fit_parameter_Mix <- function(train_input,
                                   .dist_matrix,
                                   .train_response2){
     kern_fun <- function(x, id, D1, D2){
-      tem0 <- as.matrix(1- (x[1]*D1+x[2]*D2))
+      tem0 <- as.matrix(1- (x[1]*D1+x[2]*D))
       tem0[tem0 < 0] = 0
       y_hat <- .train_response2[.dist_matrix$id_shuffle != id] %*% tem0/colSums(tem0)
       return(sum((y_hat - .train_response2[.dist_matrix$id_shuffle == id])^2))
@@ -993,7 +1002,8 @@ fit_parameter_Mix <- function(train_input,
   parameters <- map2(.x = kernels,
                      .y = optMethods, 
                      .f = ~ list_optimizer[[.y]](obj_fun = error_func[[.x]],
-                                                 setParameter = list_param[[.y]]))
+                                                 setParameter = list_param[[.y]],
+                                                 silent = silent))
   names(parameters) <- paste0(kernel_real, "_", optMethods)
   return(list(opt_parameters = parameters,
               add_parameters = list(inv_sigma = inv_sigma,
@@ -1001,7 +1011,6 @@ fit_parameter_Mix <- function(train_input,
                                     opt_methods = optimizeMethod),
               basic_machines = mach2))
 }
-
 
 #### --------------------------------------------------------------------- ####
 
@@ -1091,7 +1100,6 @@ kernel_pred_Mix <- function(theta,
 
 predict_Mix <- function(fitted_models,
                         new_data,
-                        new_pred = NULL,
                         test_response = NULL){
   opt_param <- fitted_models$opt_parameters
   add_param <- fitted_models$add_parameters
@@ -1118,9 +1126,9 @@ predict_Mix <- function(fitted_models,
     df_test <- new_data_
   }
   if(is.null(basic_mach$models)){
-    pred_test_all <- new_pred
-    pred_test0 <- new_pred
-  } else{
+    pred_test_all <- new_data_
+    pred_test0 <- new_data
+  }else{
     # Prediction test by basic machines
     built_models <- basic_mach$models
     pred_test <- function(meth){
@@ -1143,18 +1151,19 @@ predict_Mix <- function(fitted_models,
         pre <- 1:length(built_models[[meth]]) %>%
           map_dfc(.f = (\(k) tibble('{{k}}' := as.vector(predict(built_models[[meth]][[k]], mat_test)))))
       }
-      names(pre) <- names(built_models[[meth]])
+      colnames(pre) <- names(built_models[[meth]])
       return(pre)
     }
     pred_test_all <- names(built_models) %>%
       map_dfc(.f = pred_test)
     pred_test0 <- pred_test_all
+    if(!is.null(basic_mach$train_data$min_machine)){
+      pred_test_all <- scale(pred_test0, 
+                             center = basic_mach$train_data$min_machine,
+                             scale = basic_mach$train_data$max_machine - basic_mach$train_data$min_machine)
+    }
   }
-  if(!is.null(basic_mach$train_data$min_machine)){
-    pred_test_all <- scale(pred_test0, 
-                           center = basic_mach$train_data$min_machine,
-                           scale = basic_mach$train_data$max_machine - basic_mach$train_data$min_machine)
-  }
+  
   # Prediction train2
   pred_train_all <- basic_mach$fitted_remain
   colnames(pred_test_all) <- colnames(pred_train_all)
@@ -1217,15 +1226,16 @@ predict_Mix <- function(fitted_models,
       vec[id_] = add_param$opt_methods[id_]
     }
   }
+  
   prediction <- 1:length(kerns) %>% 
     map_dfc(.f = ~ kernel_pred_Mix(theta = opt_param[[kern0[.x]]]$opt_param,
-                                   .y2 = basic_mach$train_data$train_response[basic_mach$id2],
-                                   .dist1 = dists[[.x]]$dist_input,
-                                   .dist2 = dists[[.x]]$dist_machine,
-                                   .kern = kerns[.x], 
-                                   .inv_sig = add_param$inv_sigma, 
-                                   .alp = add_param$alp,
-                                   .meth = vec[.x]))
+                               .y2 = basic_mach$train_data$train_response[basic_mach$id2],
+                               .dist1 = dists[[.x]]$dist_input,
+                               .dist2 = dists[[.x]]$dist_machine,
+                               .kern = kerns[.x], 
+                               .inv_sig = add_param$inv_sigma, 
+                               .alp = add_param$alp,
+                               .meth = vec[.x]))
   if(is.null(test_response)){
     return(list(fitted_aggregate = prediction,
                 fitted_machine = pred_test0))
@@ -1241,6 +1251,7 @@ predict_Mix <- function(fitted_models,
   }
 }
 
+
 #### --------------------------------------------------------------------- ####
 
 # Function : `MixCobraReg` 
@@ -1250,7 +1261,6 @@ MixCobraReg <- function(train_input,
                         train_response,
                         test_input,
                         train_predictions = NULL,
-                        test_predictions = NULL,
                         test_response = NULL,
                         machines = NULL, 
                         scale_input = TRUE,
@@ -1263,30 +1273,30 @@ MixCobraReg <- function(train_input,
                         optimizeMethod = "grad",
                         setBasicMachineParam = setBasicParameter_Mix(),
                         setGradParam = setGradParameter_Mix(),
-                        setGridParam = setGridParameter_Mix()){
+                        setGridParam = setGridParameter_Mix(),
+                        silent = FALSE){
   # build machines + tune parameter
-  cat("\n\nMixCobra for regression\n-----------------------\n")
   fit_mod <- fit_parameter_Mix(train_input = train_input, 
-                               train_response = train_response,
-                               train_predictions = train_predictions,
-                               machines = machines, 
-                               scale_input = scale_input,
-                               scale_machine = scale_machine,
-                               splits = splits, 
-                               n_cv = n_cv,
-                               inv_sigma = inv_sigma,
-                               alp = alp,
-                               kernels = kernels,
-                               optimizeMethod = optimizeMethod,
-                               setBasicMachineParam = setBasicMachineParam,
-                               setGradParam = setGradParam,
-                               setGridParam = setGridParam)
+                           train_response = train_response,
+                           train_predictions = train_predictions,
+                           machines = machines, 
+                           scale_input = scale_input,
+                           scale_machine = scale_machine,
+                           splits = splits, 
+                           n_cv = n_cv,
+                           inv_sigma = inv_sigma,
+                           alp = alp,
+                           kernels = kernels,
+                           optimizeMethod = optimizeMethod,
+                           setBasicMachineParam = setBasicMachineParam,
+                           setGradParam = setGradParam,
+                           setGridParam = setGridParam,
+                           silent = silent)
   # prediction
   pred <- predict_Mix(fitted_models = fit_mod,
                       new_data = test_input,
-                      new_pred = test_predictions,
                       test_response = test_response)
-  return(list(fitted_aggregate = pred$fitted_aggregate,
+  return(list(fitted_aggregate = pred$j,
               fitted_machine = pred$fitted_machine,
               pred_train2 = fit_mod$basic_machines$fitted_remain,
               opt_parameter = fit_mod$opt_parameters,
