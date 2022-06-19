@@ -246,7 +246,7 @@ generateMachines <- function(train_input,
 }
 
 # ------------------------------------------------------------------------------------------------ #
-  
+
 # Function: `setGradParameter`
 # ---------------------------
 
@@ -254,12 +254,12 @@ setGradParameter <- function(val_init = NULL,
                              n_tries = 10, 
                              rate = NULL, 
                              min_val = 1e-4,
-                             max_val = 0.1,
+                             max_val = 10,
                              max_iter = 300, 
                              print_step = TRUE, 
                              print_result = TRUE,
                              figure = TRUE, 
-                             coef_auto = 0.005,
+                             coef_auto = 0.1,
                              coef_log = 1,
                              coef_sqrt = 1,
                              coef_lm = 1,
@@ -328,10 +328,10 @@ gradOptimizer <- function(obj_fun,
     cat(" ", rep("-",51), sep = "")
   }
   if (is.numeric(setParameter$rate)){
-    lambda0 <- setParameter$rate / abs(grad_)
+    lambda0 <- setParameter$rate
     rate_GD <- "auto"
   } else{
-    r0 <- setParameter$coef_auto / abs(grad_)
+    r0 <- setParameter$coef_auto
     #### Rate functions
     rate_func <- list(auto = r0, 
                       logarithm = function(i)  setParameter$coef_log * log(2 + i) * r0,
@@ -359,14 +359,14 @@ gradOptimizer <- function(obj_fun,
           heps = .Machine$double.eps ^ (1 / 3)
         )
       }
-      val <- val0 - lambda0 * grad_
+      val <- val0 - lambda0 * sign(grad_)
       if (val < 0){
-        val <- val0/2
-        lambda0 <- lambda0/2
+        val <- val0/3
+        lambda0 <- lambda0/3
       }
       if(i > 5){
         if(sign(grad_) * sign(grad0) < 0){
-          lambda0 = lambda0 / 2
+          lambda0 = lambda0 / 3
         }
       }
       relative <- abs((val - val0) / val0)
@@ -402,14 +402,14 @@ gradOptimizer <- function(obj_fun,
           heps = .Machine$double.eps ^ (1 / 3)
         )
       }
-      val <- val0 - lambda0(i) * grad_
+      val <- val0 - lambda0(i) * sign(grad_)
       if (val < 0){
-        val <- val0/2
-        r0 <- r0 / 2
+        val <- val0/3
+        r0 <- r0 / 3
       }
       if(i > 5){
         if(sign(grad_)*sign(grad0) < 0)
-          r0 <- r0 / 2
+          r0 <- r0 / 3
       }
       relative <- abs((val - val0) / val0)
       test_threshold <- max(relative, abs(grad_))
@@ -479,10 +479,10 @@ gradOptimizer <- function(obj_fun,
 }
 
 # ------------------------------------------------------------------------------------------------ #
-  
+
 # Function: `setGridParameter`
 # ----------------------------
-  
+
 setGridParameter <- function(min_val = 1e-4, 
                              max_val = 0.1, 
                              n_val = 300, 
@@ -545,7 +545,7 @@ gridOptimizer <- function(obj_func,
 }
 
 # ------------------------------------------------------------------------------------------------ #
-  
+
 # Function: `dist_matrix`
 # -----------------------
 dist_matrix <- function(basicMachines,
