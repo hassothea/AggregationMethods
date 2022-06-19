@@ -1100,6 +1100,7 @@ kernel_pred_Mix <- function(theta,
 
 predict_Mix <- function(fitted_models,
                         new_data,
+                        new_pred = NULL,
                         test_response = NULL){
   opt_param <- fitted_models$opt_parameters
   add_param <- fitted_models$add_parameters
@@ -1126,9 +1127,9 @@ predict_Mix <- function(fitted_models,
     df_test <- new_data_
   }
   if(is.null(basic_mach$models)){
-    pred_test_all <- new_data_
-    pred_test0 <- new_data
-  }else{
+    pred_test_all <- new_pred
+    pred_test0 <- new_pred
+  } else{
     # Prediction test by basic machines
     built_models <- basic_mach$models
     pred_test <- function(meth){
@@ -1151,19 +1152,18 @@ predict_Mix <- function(fitted_models,
         pre <- 1:length(built_models[[meth]]) %>%
           map_dfc(.f = (\(k) tibble('{{k}}' := as.vector(predict(built_models[[meth]][[k]], mat_test)))))
       }
-      colnames(pre) <- names(built_models[[meth]])
+      names(pre) <- names(built_models[[meth]])
       return(pre)
     }
     pred_test_all <- names(built_models) %>%
       map_dfc(.f = pred_test)
     pred_test0 <- pred_test_all
-    if(!is.null(basic_mach$train_data$min_machine)){
-      pred_test_all <- scale(pred_test0, 
-                             center = basic_mach$train_data$min_machine,
-                             scale = basic_mach$train_data$max_machine - basic_mach$train_data$min_machine)
-    }
   }
-  
+  if(!is.null(basic_mach$train_data$min_machine)){
+    pred_test_all <- scale(pred_test0, 
+                           center = basic_mach$train_data$min_machine,
+                           scale = basic_mach$train_data$max_machine - basic_mach$train_data$min_machine)
+  }
   # Prediction train2
   pred_train_all <- basic_mach$fitted_remain
   colnames(pred_test_all) <- colnames(pred_train_all)
@@ -1226,16 +1226,15 @@ predict_Mix <- function(fitted_models,
       vec[id_] = add_param$opt_methods[id_]
     }
   }
-  
   prediction <- 1:length(kerns) %>% 
     map_dfc(.f = ~ kernel_pred_Mix(theta = opt_param[[kern0[.x]]]$opt_param,
-                               .y2 = basic_mach$train_data$train_response[basic_mach$id2],
-                               .dist1 = dists[[.x]]$dist_input,
-                               .dist2 = dists[[.x]]$dist_machine,
-                               .kern = kerns[.x], 
-                               .inv_sig = add_param$inv_sigma, 
-                               .alp = add_param$alp,
-                               .meth = vec[.x]))
+                                   .y2 = basic_mach$train_data$train_response[basic_mach$id2],
+                                   .dist1 = dists[[.x]]$dist_input,
+                                   .dist2 = dists[[.x]]$dist_machine,
+                                   .kern = kerns[.x], 
+                                   .inv_sig = add_param$inv_sigma, 
+                                   .alp = add_param$alp,
+                                   .meth = vec[.x]))
   if(is.null(test_response)){
     return(list(fitted_aggregate = prediction,
                 fitted_machine = pred_test0))
@@ -1251,16 +1250,16 @@ predict_Mix <- function(fitted_models,
   }
 }
 
-
 #### --------------------------------------------------------------------- ####
 
 # Function : `MixCobraReg` 
 # ========================
- 
+
 MixCobraReg <- function(train_input, 
                         train_response,
                         test_input,
                         train_predictions = NULL,
+                        test_predictions = NULL,
                         test_response = NULL,
                         machines = NULL, 
                         scale_input = TRUE,
@@ -1273,30 +1272,30 @@ MixCobraReg <- function(train_input,
                         optimizeMethod = "grad",
                         setBasicMachineParam = setBasicParameter_Mix(),
                         setGradParam = setGradParameter_Mix(),
-                        setGridParam = setGridParameter_Mix(),
-                        silent = FALSE){
+                        setGridParam = setGridParameter_Mix()){
   # build machines + tune parameter
+  cat("\n\nMixCobra for regression\n-----------------------\n")
   fit_mod <- fit_parameter_Mix(train_input = train_input, 
-                           train_response = train_response,
-                           train_predictions = train_predictions,
-                           machines = machines, 
-                           scale_input = scale_input,
-                           scale_machine = scale_machine,
-                           splits = splits, 
-                           n_cv = n_cv,
-                           inv_sigma = inv_sigma,
-                           alp = alp,
-                           kernels = kernels,
-                           optimizeMethod = optimizeMethod,
-                           setBasicMachineParam = setBasicMachineParam,
-                           setGradParam = setGradParam,
-                           setGridParam = setGridParam,
-                           silent = silent)
+                               train_response = train_response,
+                               train_predictions = train_predictions,
+                               machines = machines, 
+                               scale_input = scale_input,
+                               scale_machine = scale_machine,
+                               splits = splits, 
+                               n_cv = n_cv,
+                               inv_sigma = inv_sigma,
+                               alp = alp,
+                               kernels = kernels,
+                               optimizeMethod = optimizeMethod,
+                               setBasicMachineParam = setBasicMachineParam,
+                               setGradParam = setGradParam,
+                               setGridParam = setGridParam)
   # prediction
   pred <- predict_Mix(fitted_models = fit_mod,
                       new_data = test_input,
+                      new_pred = test_predictions,
                       test_response = test_response)
-  return(list(fitted_aggregate = pred$j,
+  return(list(fitted_aggregate = pred$fitted_aggregate,
               fitted_machine = pred$fitted_machine,
               pred_train2 = fit_mod$basic_machines$fitted_remain,
               opt_parameter = fit_mod$opt_parameters,
@@ -1304,5 +1303,5 @@ MixCobraReg <- function(train_input,
               kernels = kernels,
               ind_D2 = fit_mod$basic_machines$id2))
 }
- 
+
 #### --------------------------------------------------------------------- ####
