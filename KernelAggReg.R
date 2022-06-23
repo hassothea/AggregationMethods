@@ -120,7 +120,7 @@ generateMachines <- function(train_input,
                 model = mod))
   }
   tree_machine <- function(x, pa = NULL) {
-    mod <- tree(train_y1 ~., 
+    mod <- tree(train_y1 ~ ., 
                 data = df_train_x1)
     res <- as.vector(predict(mod, x))
     return(list(pred = res,
