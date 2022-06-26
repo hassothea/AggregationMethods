@@ -347,7 +347,7 @@ gridOptimizer <- function(obj_func,
     opt_ep <- param[id_opt]
     opt_risk <- risk[id_opt]
     if(setParameter$print_result & !silent){
-      cat("\n* Grid search for",ker,"kernel...\n\t~ observed parameter :", opt_ep)
+      cat("\n* Grid search for",ker,"kernel...\n ~ observed parameter :", opt_ep)
     }
     if(setParameter$figure){
       tibble(x = param, 
