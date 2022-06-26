@@ -873,9 +873,9 @@ predict_Mix <- function(fitted_models,
   basic_mach <- fitted_models$basic_machines
   kern0 <- names(opt_param)
   new_data_ <- new_data
+  mat_input <- as.matrix(basic_mach$train_data$train_input)
   # if basic machines are built
   if(is.list(basic_mach$models)){
-    mat_input <- as.matrix(basic_mach$train_data$train_input)
     if(add_param$scale_input){
       new_data_ <- scale(new_data, 
                          center = basic_mach$scale_min, 
@@ -927,7 +927,7 @@ predict_Mix <- function(fitted_models,
   colnames(pred_test_all) <- colnames(pred_train_all)
   d_train <- dim(pred_train_all)
   d_test <- dim(pred_test_all)
-  d_train_input <- dim(basic_mach$train_data$train_input[basic_mach$id2,])
+  d_train_input <- dim(mat_input[basic_mach$id2,])
   d_test_input <- dim(new_data_)
   pred_test_mat <- as.matrix(pred_test_all)
   pred_train_mat <- as.matrix(pred_train_all)
