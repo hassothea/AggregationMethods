@@ -872,7 +872,7 @@ predict_Mix <- function(fitted_models,
   add_param <- fitted_models$add_parameters
   basic_mach <- fitted_models$basic_machines
   kern0 <- names(opt_param)
-  new_data_ <- new_data
+  new_data_ <- as.matrix(new_data)
   mat_input <- as.matrix(basic_mach$train_data$train_input)
   # if basic machines are built
   if(is.list(basic_mach$models)){
