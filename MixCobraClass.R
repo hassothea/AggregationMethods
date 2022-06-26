@@ -944,10 +944,7 @@ predict_Mix <- function(fitted_models,
     }
     if(kernel == "naive"){
       res_1 <- 1:d_test_input[1] %>%
-        map_dfc(.f = (\(id) tibble('{{id}}' := as.vector(apply(abs(mat_input[basic_mach$id2,] - matrix(rep(new_data_[id,], 
-                                                                                                           d_train_input[1]),
-                                                                                                       ncol = d_train_input[2], 
-                                                                                                       byrow = TRUE)), 1, max)))))
+        map_dfc(.f = (\(id) tibble('{{id}}' := as.vector(apply(abs(sweep(mat_input[basic_mach$id2,], MARGIN = 2, new_data_[id,])), 1, max)))))
     }
     return(dist_input = res_1)
   }
