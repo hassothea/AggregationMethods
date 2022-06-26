@@ -936,11 +936,11 @@ predict_Mix <- function(fitted_models,
     res_1 <- res_2 <- NULL
     if(!(kernel %in% c("naive", "triangular"))){
       res_1 <- 1:d_test_input[1] %>%
-        map_dfc(.f = (\(id) tibble('{{id}}' := as.vector(rowSums(sweep(mat_input, MARGIN = 2, new_data_[id,]))^2))))
+        map_dfc(.f = (\(id) tibble('{{id}}' := as.vector(rowSums(sweep(mat_input[basic_mach$id2,], MARGIN = 2, new_data_[id,]))^2))))
     }
     if(kernel == "triangular"){
       res_1 <- 1:d_test_input[1] %>%
-        map_dfc(.f = (\(id) tibble('{{id}}' := as.vector(rowSums(abs(sweep(mat_input, MARGIN = 2, new_data_[id,])))))))
+        map_dfc(.f = (\(id) tibble('{{id}}' := as.vector(rowSums(abs(sweep(mat_input[basic_mach$id2,], MARGIN = 2, new_data_[id,])))))))
     }
     if(kernel == "naive"){
       res_1 <- 1:d_test_input[1] %>%
