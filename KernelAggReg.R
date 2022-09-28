@@ -89,7 +89,7 @@ generateMachines <- function(train_input,
     train_input_scale <- scale(train_input, center = mins, scale = maxs - mins)
   }
   if(is.matrix(train_input_scale)){
-    df_input <- as_tibble(train_input_scale, .name_repair = 'unique'))
+    df_input <- as_tibble(train_input_scale, .name_repair = 'unique')
     matrix_input <- train_input_scale
   } else{
     df_input <- train_input_scale
@@ -219,7 +219,7 @@ generateMachines <- function(train_input,
     tem1 <- imap(.x = 1:length(para_), 
                  .f = extr_mod)
     names(tem0) <- names(tem1) <- paste0(mach[m], 1:length(para_))
-    pred_D2 <- bind_cols(pred_D2, as_tibble(tem0, .name_repair = 'unique')))
+    pred_D2 <- bind_cols(pred_D2, as_tibble(tem0, .name_repair = 'unique'))
     all_mod[[mach[m]]] <- tem1
     if(!silent){
       cat(" ... ", round(m/M, 2)*100L,"%", sep = "")
@@ -943,7 +943,7 @@ predict_agg <- function(fitted_models,
     }
     if(is.matrix(new_data_)){
       mat_test <- new_data_
-      df_test <- as_tibble(new_data_, .name_repair = 'unique'))
+      df_test <- as_tibble(new_data_, .name_repair = 'unique')
     } else {
       mat_test <- as.matrix(new_data_)
       df_test <- new_data_
