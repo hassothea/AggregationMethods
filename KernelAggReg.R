@@ -610,7 +610,7 @@ fit_parameter <- function(train_design,
                           setBasicMachineParam = setBasicParameter(),
                           setGradParam = setGradParameter(),
                           setGridParam = setGridParameter()){
-  kernels_lookup <- c("gaussian", "epanechnikov", "biweight", "triweight", "triangular", "naive", "c_expo", "expo")
+  kernels_lookup <- c("gaussian", "epanechnikov", "biweight", "triweight", "triangular", "naive", "c.expo", "expo")
   kernel_real <- kernels %>%
     sapply(FUN = function(x) return(match.arg(x, kernels_lookup)))
   if(build_machine){
@@ -687,7 +687,7 @@ fit_parameter <- function(train_design,
     return(Reduce("+", temp))
   }
   # C_expo
-  c_expo_kernel <- function(.ep = .05,
+  c.expo_kernel <- function(.ep = .05,
                             .dist_matrix,
                             .train_response2,
                             .sigma = sig,
@@ -823,7 +823,7 @@ fit_parameter <- function(train_design,
                     triangular = triangular_kernel,
                     naive = naive_kernel,
                     expo = expo_kernel,
-                    c_expo = c_expo_kernel)
+                    c.expo = c.expo_kernel)
   
   # error for all kernel functions
   error_func <- kernel_real %>%
@@ -872,7 +872,7 @@ kernel_pred <- function(epsilon,
                         .y2, 
                         .distance, 
                         .kern = "gaussian",
-                        .sig = sqrt(.5), 
+                        .sig = 3, 
                         .alp = 2,
                         .meth = NA){
   dis <- as.matrix(.distance)
@@ -884,7 +884,7 @@ kernel_pred <- function(epsilon,
     y_hat <- .y2 %*% tem0/colSums(tem0)
     return(t(y_hat))
   }
-  c_expo_kernel <- function(.ep,
+  c.expo_kernel <- function(.ep,
                             .sigma = .sig,
                             .alpha = .alp){
     tem0 <- .ep*dis
@@ -946,7 +946,9 @@ kernel_pred <- function(epsilon,
                       biweight = biweight_kernel,
                       triweight = triweight_kernel,
                       triangular = triangular_kernel,
-                      naive = naive_kernel)
+                      naive = naive_kernel,
+                      expo = expo_kernel,
+                      c.expo = c.expo_kernel)
   res <- tibble(as.vector(kernel_list[[.kern]](.ep = epsilon)))
   names(res) <- ifelse(is.na(.meth), 
                        .kern, 
