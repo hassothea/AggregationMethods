@@ -60,8 +60,7 @@ generateMachines <- function(train_input,
                              scale_input = FALSE,
                              machines = NULL, 
                              splits = 0.5, 
-                             basicMachineParam = setBasicParameter(),
-                             silent = FALSE){
+                             basicMachineParam = setBasicParameter()){
   lambda = basicMachineParam$lambda
   k <- basicMachineParam$k 
   ntree <- basicMachineParam$ntree 
@@ -97,7 +96,7 @@ generateMachines <- function(train_input,
   }
   
   # Machines
-  lasso_machine <- function(x, lambda0){ 
+  lasso_machine <- function(x, lambda0){
     if(is.null(lambda)){
       cv <- cv.glmnet(matrix_train_x1, train_y1, alpha = 1, lambda = 10^(seq(-3,2,length.out = 50)))
       mod <- glmnet(matrix_train_x1, train_y1, alpha = 1, lambda = cv$lambda.min)
@@ -120,7 +119,10 @@ generateMachines <- function(train_input,
                 model = mod))
   }
   tree_machine <- function(x, pa = NULL) {
-    mod <- tree(train_y1 ~ ., 
+    mod <- tree(as.formula(paste("train_y1~", 
+                                 paste(input_names, sep = "", collapse = "+"), 
+                                 collapse = "", 
+                                 sep = "")), 
                 data = df_train_x1)
     res <- as.vector(predict(mod, x))
     return(list(pred = res,
@@ -197,10 +199,8 @@ generateMachines <- function(train_input,
   
   pred_D2 <- c()
   all_mod <- c()
-  if(!silent){
-    cat("\n* Building basic machines ...\n")
-    cat("\t~ Progress:")
-  }
+  cat("\n* Building basic machines ...\n")
+  cat("\t~ Progress:")
   for(m in 1:M){
     if(mach[m] %in% c("tree", "rf")){
       x0_test <- df_train_x2
@@ -221,9 +221,7 @@ generateMachines <- function(train_input,
     names(tem0) <- names(tem1) <- paste0(mach[m], 1:length(para_))
     pred_D2 <- bind_cols(pred_D2, as_tibble(tem0))
     all_mod[[mach[m]]] <- tem1
-    if(!silent){
-      cat(" ... ", round(m/M, 2)*100L,"%", sep = "")
-    }
+    cat(" ... ", round(m/M, 2)*100L,"%", sep = "")
   }
   if(scale_input){
     return(list(predict2 = pred_D2,
@@ -251,12 +249,12 @@ setGradParameter <- function(val_init = NULL,
                              n_tries = 10, 
                              rate = NULL, 
                              min_val = 1e-4,
-                             max_val = 10,
+                             max_val = 0.1,
                              max_iter = 300, 
                              print_step = TRUE, 
                              print_result = TRUE,
                              figure = TRUE, 
-                             coef_auto = 0.1,
+                             coef_auto = 0.005,
                              coef_log = 1,
                              coef_sqrt = 1,
                              coef_lm = 1,
@@ -289,10 +287,10 @@ setGradParameter <- function(val_init = NULL,
 # Function: `gradOptimizer`
 # -------------------------
 gradOptimizer <- function(obj_fun,
-                          setParameter = setGradParameter(),
-                          silent = FALSE) {
+                          setParameter = setGradParameter()) {
   start.time <- Sys.time()
-  #### Optimization step:
+  # Optimization step:
+  # ==================
   spec_print <- function(x) return(ifelse(x > 1e-6, 
                                           format(x, digit = 6, nsmall = 6), 
                                           format(x, scientific = TRUE, digit = 6, nsmall = 6)))
@@ -315,7 +313,7 @@ gradOptimizer <- function(obj_fun,
       x0 = val0, 
       heps = .Machine$double.eps ^ (1 / 3))
   }
-  if(setParameter$print_step & !silent){
+  if(setParameter$print_step){
     cat("\n* Gradient descent algorithm ...")
     cat("\n  Step\t|  Parameter\t|  Gradient\t|  Threshold \n")
     cat(" ", rep("-", 51), sep = "")
@@ -325,11 +323,11 @@ gradOptimizer <- function(obj_fun,
     cat(" ", rep("-",51), sep = "")
   }
   if (is.numeric(setParameter$rate)){
-    lambda0 <- setParameter$rate
+    lambda0 <- setParameter$rate / abs(grad_)
     rate_GD <- "auto"
   } else{
-    r0 <- setParameter$coef_auto
-    #### Rate functions
+    r0 <- setParameter$coef_auto / abs(grad_)
+    # Rate functions
     rate_func <- list(auto = r0, 
                       logarithm = function(i)  setParameter$coef_log * log(2 + i) * r0,
                       sqrtroot = function(i) setParameter$coef_sqrt * sqrt(i) * r0,
@@ -356,14 +354,14 @@ gradOptimizer <- function(obj_fun,
           heps = .Machine$double.eps ^ (1 / 3)
         )
       }
-      val <- val0 - lambda0 * sign(grad_)
+      val <- val0 - lambda0 * grad_
       if (val < 0){
-        val <- val0/3
-        lambda0 <- lambda0/3
+        val <- val0/2
+        lambda0 <- lambda0/2
       }
       if(i > 5){
         if(sign(grad_) * sign(grad0) < 0){
-          lambda0 = lambda0 / 3
+          lambda0 = lambda0 / 2
         }
       }
       relative <- abs((val - val0) / val0)
@@ -380,7 +378,7 @@ gradOptimizer <- function(obj_fun,
         heps = .Machine$double.eps ^ (1 / 3)
       )
       i <- i + 1
-      if(setParameter$print_step & !silent){
+      if(setParameter$print_step){
         cat("\n  ", i, "\t| ", spec_print(val), 
             "\t| ", spec_print(grad_), 
             "\t| ", test_threshold, "\r")
@@ -399,14 +397,14 @@ gradOptimizer <- function(obj_fun,
           heps = .Machine$double.eps ^ (1 / 3)
         )
       }
-      val <- val0 - lambda0(i) * sign(grad_)
+      val <- val0 - lambda0(i) * grad_
       if (val < 0){
-        val <- val0/3
-        r0 <- r0 / 3
+        val <- val0/2
+        r0 <- r0 / 2
       }
       if(i > 5){
         if(sign(grad_)*sign(grad0) < 0)
-          r0 <- r0 / 3
+          r0 <- r0 / 2
       }
       relative <- abs((val - val0) / val0)
       test_threshold <- max(relative, abs(grad_))
@@ -423,7 +421,7 @@ gradOptimizer <- function(obj_fun,
         heps = .Machine$double.eps ^ (1 / 3)
       )
       i <- i + 1
-      if(setParameter$print_step & !silent){
+      if(setParameter$print_step){
         cat("\n  ", i, "\t| ", spec_print(val), 
             "\t| ", spec_print(grad_), 
             "\t| ", test_threshold, "\r")
@@ -434,7 +432,7 @@ gradOptimizer <- function(obj_fun,
   }
   opt_ep <- val
   opt_risk <- obj_fun(opt_ep)
-  if(setParameter$print_step& !silent){
+  if(setParameter$print_step){
     cat(rep("-", 55), sep = "")
     if(grad_ == 0){
       cat("\n Stopped| ", spec_print(val), 
@@ -446,7 +444,7 @@ gradOptimizer <- function(obj_fun,
           "\t| ", test_threshold)
     } 
   }
-  if(setParameter$print_result & !silent){
+  if(setParameter$print_result){
     cat("\n ~ Observed parameter:", opt_ep, " in",i, "iterations.")
   }
   if (setParameter$figure) {
@@ -500,8 +498,7 @@ setGridParameter <- function(min_val = 1e-4,
 # -------------------------
 
 gridOptimizer <- function(obj_func,
-                          setParameter = setGridParameter(),
-                          silent = FALSE){
+                          setParameter = setGridParameter()){
   t0 <- Sys.time()
   if(is.null(setParameter$parameters)){
     param <- seq(setParameter$min_val, 
@@ -515,7 +512,7 @@ gridOptimizer <- function(obj_func,
   id_opt <- which.min(risk)
   opt_ep <- param[id_opt]
   opt_risk <- risk[id_opt]
-  if(setParameter$print_result & !silent){
+  if(setParameter$print_result){
     cat("\n* Grid search algorithm...", "\n ~ Observed parameter :", opt_ep)
   }
   if(setParameter$figure){
@@ -547,7 +544,7 @@ gridOptimizer <- function(obj_func,
 # -----------------------
 dist_matrix <- function(basicMachines,
                         n_cv = 5,
-                        kernel = "gausian",
+                        kernel = "gaussian",
                         id_shuffle = NULL){
   n <- nrow(basicMachines$predict2)
   n_each_fold <- floor(n/n_cv)
@@ -609,15 +606,14 @@ fit_parameter <- function(train_design,
                           machines = NULL, 
                           splits = 0.5, 
                           n_cv = 5,
-                          inv_sigma = sqrt(.5),
+                          sig = 3,
                           alp = 2,
                           kernels = "gaussian",
                           optimizeMethod = "grad",
                           setBasicMachineParam = setBasicParameter(),
                           setGradParam = setGradParameter(),
-                          setGridParam = setGridParameter(),
-                          silent = FALSE){
-  kernels_lookup <- c("gaussian", "epanechnikov", "biweight", "triweight", "triangular", "naive")
+                          setGridParam = setGridParameter()){
+  kernels_lookup <- c("gaussian", "epanechnikov", "biweight", "triweight", "triangular", "naive", "c_exp", "expo")
   kernel_real <- kernels %>%
     sapply(FUN = function(x) return(match.arg(x, kernels_lookup)))
   if(build_machine){
@@ -626,8 +622,7 @@ fit_parameter <- function(train_design,
                               scale_input = scale_input,
                               machines = machines,
                               splits = splits,
-                              basicMachineParam = setBasicMachineParam,
-                              silent = silent)
+                              basicMachineParam = setBasicMachineParam)
   } else{
     mach2 <- list(predict2 = train_design,
                   models = colnames(train_design),
@@ -642,7 +637,7 @@ fit_parameter <- function(train_design,
                             center = mins_, 
                             scale = maxs_ - mins_)
   }
-  #### distance matrix to compute loss function
+  # distance matrix to compute loss function
   if_euclid <- FALSE
   id_euclid <- NULL
   n_ker <- length(kernels)
@@ -677,15 +672,49 @@ fit_parameter <- function(train_design,
     id_shuf <- dist_all[[1]]$id_shuffle
   }
   
-  ### Kernel functions 
-  #### Gaussian
+  # Kernel functions 
+  # ================
+  # expo
+  expo_kernel <- function(.ep = .05,
+                          .dist_matrix,
+                          .train_response2,
+                          .alpha = alp){
+    kern_fun <- function(x, id, D){
+      tem0 <- as.matrix(exp(- (x*D)^.alpha))
+      y_hat <- .train_response2[.dist_matrix$id_shuffle != id] %*% tem0/colSums(tem0)
+      return(sum((y_hat - .train_response2[.dist_matrix$id_shuffle == id])^2))
+    }
+    temp <- map2(.x = 1:.dist_matrix$n_cv,
+                 .y = .dist_matrix$dist, 
+                 .f = ~ kern_fun(x = .ep, id = .x, D = .y))
+    return(Reduce("+", temp))
+  }
+  # C_expo
+  c_expo_kernel <- function(.ep = .05,
+                            .dist_matrix,
+                            .train_response2,
+                            .sigma = sig,
+                            .alpha = alp){
+    kern_fun <- function(x, id, D){
+      tem0 <- x*D
+      tem0[tem0 < .sigma] <- 0
+      tem1 <- as.matrix(exp(- tem0^.alpha))
+      y_hat <- .train_response2[.dist_matrix$id_shuffle != id] %*% tem1/colSums(tem1)
+      y_hat[is.na(y_hat)] <- 0
+      return(sum((y_hat - .train_response2[.dist_matrix$id_shuffle == id])^2))
+    }
+    temp <- map2(.x = 1:.dist_matrix$n_cv,
+                 .y = .dist_matrix$dist, 
+                 .f = ~ kern_fun(x = .ep, id = .x, D = .y))
+    return(Reduce("+", temp))
+  }
+  
+  # Gaussian
   gaussian_kernel <- function(.ep = .05,
                               .dist_matrix,
-                              .train_response2,
-                              .inv_sigma = inv_sigma,
-                              .alpha = alp){
+                              .train_response2){
     kern_fun <- function(x, id, D){
-      tem0 <- as.matrix(exp(- (x*D)^(.alpha/2)*.inv_sigma^.alpha))
+      tem0 <- as.matrix(exp(- (x*D)/2))
       y_hat <- .train_response2[.dist_matrix$id_shuffle != id] %*% tem0/colSums(tem0)
       return(sum((y_hat - .train_response2[.dist_matrix$id_shuffle == id])^2))
     }
@@ -695,7 +724,7 @@ fit_parameter <- function(train_design,
     return(Reduce("+", temp))
   }
   
-  #### Epanechnikov
+  # Epanechnikov
   epanechnikov_kernel <- function(.ep = .05,
                                   .dist_matrix,
                                   .train_response2){
@@ -711,7 +740,7 @@ fit_parameter <- function(train_design,
     return(Reduce("+", temp))
   }
   
-  #### Biweight
+  # Biweight
   biweight_kernel <- function(.ep = .05,
                               .dist_matrix,
                               .train_response2){
@@ -728,7 +757,7 @@ fit_parameter <- function(train_design,
     return(Reduce("+", temp))
   }
   
-  #### Triweight
+  # Triweight
   triweight_kernel <- function(.ep = .05,
                                .dist_matrix,
                                .train_response2){
@@ -745,7 +774,7 @@ fit_parameter <- function(train_design,
     return(Reduce("+", temp))
   }
   
-  #### Triangular
+  # Triangular
   triangular_kernel <- function(.ep = .05,
                                 .dist_matrix,
                                 .train_response2){
@@ -762,7 +791,7 @@ fit_parameter <- function(train_design,
     return(Reduce("+", temp))
   }
   
-  #### Naive
+  # Naive
   naive_kernel <- function(.ep = .05,
                            .dist_matrix,
                            .train_response2){
@@ -778,7 +807,7 @@ fit_parameter <- function(train_design,
     return(Reduce("+", temp))
   }
   
-  #### error function
+  # error function
   error_cv <- function(x, 
                        .dist_matrix = NULL,
                        .kernel_func = NULL,
@@ -789,26 +818,28 @@ fit_parameter <- function(train_design,
     return(res/n_cv)
   }
   
-  #### list of kernel functions
+  # list of kernel functions
   list_funs <- list(gaussian = gaussian_kernel,
                     epanechnikov = epanechnikov_kernel,
                     biweight = biweight_kernel,
                     triweight = triweight_kernel,
                     triangular = triangular_kernel,
-                    naive = naive_kernel)
+                    naive = naive_kernel,
+                    expo = expo_kernel,
+                    c_expo = c_expo_kernel)
   
-  #### error for all kernel functions
+  # error for all kernel functions
   error_func <- kernel_real %>%
     map(.f = ~ (\(x) error_cv(x, 
                               .dist_matrix = dist_all[[.x]],
                               .kernel_func = list_funs[[.x]],
                               .train_response2 = train_response[mach2$id2])))
   names(error_func) <- kernels
-  #### list of parameter setup
+  # list of prameter setup
   list_param <- list(grad = setGradParam,
                      GD = setGradParam,
                      grid = setGridParam)
-  #### list of optimizer
+  # list of optimizer
   list_optimizer <- list(grad = gradOptimizer,
                          GD = gradOptimizer,
                          grid = gridOptimizer)
@@ -818,17 +849,16 @@ fit_parameter <- function(train_design,
     optMethods = rep("grid", length(kernels))
   }
   
-  #### Optimization
+  # Optimization
   parameters <- map2(.x = kernels,
-                     .y = optMethods, 
+                     .y = optMethods,
                      .f = ~ list_optimizer[[.y]](obj_fun = error_func[[.x]],
-                                                 setParameter = list_param[[.y]],
-                                                 silent = silent))
+                                                 setParameter = list_param[[.y]]))
   names(parameters) <- paste0(kernel_real, "_", optMethods)
   return(list(opt_parameters = parameters,
               add_parameters = list(scale_input = scale_input,
                                     scale_machine = scale_machine,
-                                    inv_sigma = inv_sigma,
+                                    sig = sig,
                                     alp = alp,
                                     opt_methods = optimizeMethod),
               basic_machines = mach2,
@@ -845,16 +875,30 @@ kernel_pred <- function(epsilon,
                         .y2, 
                         .distance, 
                         .kern = "gaussian",
-                        .inv_sig = sqrt(.5), 
+                        .sig = sqrt(.5), 
                         .alp = 2,
                         .meth = NA){
   dis <- as.matrix(.distance)
   # Kernel functions 
   # ================
-  gaussian_kernel <- function(.ep,
-                              .inv_sigma = .inv_sig,
-                              .alpha = .alp){
-    tem0 <- exp(- (.ep*dis)^(.alpha/2)*.inv_sig^.alpha)
+  expo_kernel <- function(.ep,
+                          .alpha = .alp){
+    tem0 <- exp(- (.ep*dis)^.alpha)
+    y_hat <- .y2 %*% tem0/colSums(tem0)
+    return(t(y_hat))
+  }
+  c_expo_kernel <- function(.ep,
+                            .sigma = .sig,
+                            .alpha = .alp){
+    tem0 <- .ep*dis
+    tem0[tem0 < .sigma] <- 0
+    tem1 <- exp(- tem0^.alpha)
+    y_hat <- .y2 %*% tem1/colSums(tem1)
+    y_hat[is.na(y_hat)] <- 0
+    return(t(y_hat))
+  }
+  gaussian_kernel <- function(.ep){
+    tem0 <- exp(- (.ep*dis)/2)
     y_hat <- .y2 %*% tem0/colSums(tem0)
     return(t(y_hat))
   }
@@ -933,7 +977,7 @@ predict_agg <- function(fitted_models,
   opt_meths <- kernel0[2,] %>%
     as.character
   new_data_ <- new_data
-  #### if basic machines are built
+  # if basic machines are built
   if(is.list(basic_mach$models)){
     mat_input <- as.matrix(basic_mach$train_data$train_input)
     if(add_param$scale_input){
@@ -949,7 +993,7 @@ predict_agg <- function(fitted_models,
       df_test <- new_data_
     }
     
-    #### Prediction test by basic machines
+    # Prediction test by basic machines
     built_models <- basic_mach$models
     pred_test <- function(meth){
       if(meth == "knn"){
@@ -985,15 +1029,15 @@ predict_agg <- function(fitted_models,
                            center = fitted_models$.scale$min,
                            scale = fitted_models$.scale$max - fitted_models$.scale$min)
   }
-  #### Prediction train2
+  # Prediction train2
   pred_train_all <- basic_mach$predict2
   colnames(pred_test_all) <- colnames(pred_train_all)
   d_train <- dim(pred_train_all)
   d_test <- dim(pred_test_all)
   pred_test_mat <- as.matrix(pred_test_all)
   pred_train_mat <- as.matrix(pred_train_all)
-  #### Distance matrix
-  dist_mat <- function(kernel = "gausian"){
+  # Distance matrix
+  dist_mat <- function(kernel = "gaussian"){
     if(!(kernel %in% c("naive", "triangular"))){
       res_ <- 1:d_test[1] %>%
         map_dfc(.f = (\(id) tibble('{{id}}' := as.vector(rowSums((pred_train_mat - matrix(rep(pred_test_mat[id,], 
@@ -1032,7 +1076,7 @@ predict_agg <- function(fitted_models,
                                .y2 = basic_mach$train_data$train_response[basic_mach$id2],
                                .distance = dists[[.x]],
                                .kern = kerns[.x], 
-                               .inv_sig = add_param$inv_sigma, 
+                               .sig = add_param$sig, 
                                .alp = add_param$alp,
                                .meth = vec[.x]))
   if(is.null(test_response)){
@@ -1065,15 +1109,14 @@ kernelAggReg <- function(train_design,
                          machines = NULL, 
                          splits = 0.5, 
                          n_cv = 5,
-                         inv_sigma = sqrt(.5),
+                         sig = 3,
                          alp = 2,
                          kernels = "gaussian",
                          optimizeMethod = "grad",
                          setBasicMachineParam = setBasicParameter(),
                          setGradParam = setGradParameter(),
-                         setGridParam = setGridParameter(),
-                         silent = FALSE){
-  #### build machines + tune parameter
+                         setGridParam = setGridParameter()){
+  # build machines + tune parameter
   fit_mod <- fit_parameter(train_design = train_design, 
                            train_response = train_response,
                            scale_input = scale_input,
@@ -1082,15 +1125,14 @@ kernelAggReg <- function(train_design,
                            machines = machines, 
                            splits = splits, 
                            n_cv = n_cv,
-                           inv_sigma = inv_sigma,
+                           sig = sig,
                            alp = alp,
                            kernels = kernels,
                            optimizeMethod = optimizeMethod,
                            setBasicMachineParam = setBasicMachineParam,
                            setGradParam = setGradParam,
-                           setGridParam = setGridParam,
-                           silent = silent)
-  #### prediction
+                           setGridParam = setGridParam)
+  # prediction
   pred <- predict_agg(fitted_models = fit_mod,
                       new_data = test_design,
                       test_response = test_response)
@@ -1102,5 +1144,4 @@ kernelAggReg <- function(train_design,
               kernels = kernels,
               ind_D2 = fit_mod$basic_machines$id2))
 }
-
 # ------------------------------------------------------------------------------------------------ #
