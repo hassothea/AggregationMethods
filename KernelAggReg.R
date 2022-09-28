@@ -610,7 +610,7 @@ fit_parameter <- function(train_design,
                           setBasicMachineParam = setBasicParameter(),
                           setGradParam = setGradParameter(),
                           setGridParam = setGridParameter()){
-  kernels_lookup <- c("gaussian", "epanechnikov", "biweight", "triweight", "triangular", "naive", "c_exp", "expo")
+  kernels_lookup <- c("gaussian", "epanechnikov", "biweight", "triweight", "triangular", "naive", "c_expO", "expo")
   kernel_real <- kernels %>%
     sapply(FUN = function(x) return(match.arg(x, kernels_lookup)))
   if(build_machine){
