@@ -827,9 +827,9 @@ fit_parameter <- function(train_design,
   
   # error for all kernel functions
   error_func <- kernel_real %>%
-    map(.f = ~ (\(x) error_cv(x, 
-                              .dist_matrix = dist_all[[x]],
-                              .kernel_func = list_funs[[x]],
+    map(.f = ~ (\(t) error_cv(t, 
+                              .dist_matrix = dist_all[[.x]],
+                              .kernel_func = list_funs[[.x]],
                               .train_response2 = train_response[mach2$id2])))
   names(error_func) <- kernels
   # list of prameter setup
