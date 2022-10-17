@@ -529,7 +529,7 @@ gridOptimizer <- function(obj_func,
     opt_param = opt_ep,
     opt_error = opt_risk,
     all_risk = risk,
-    run.time = difftime(t1, 
+    run_time = difftime(t1, 
                         t0, 
                         units = "secs")[[1]])
   )
