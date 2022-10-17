@@ -361,8 +361,8 @@ gradOptimizer <- function(obj_fun,
           lambda0 = lambda0 / 2
         }
       }
-      relative <- (val - val0) / val0
-      test_threshold <- abs(grad_/relative)
+      relative <- abs((val - val0) / val0)
+      test_threshold <- max(relative, abs(grad_))
       if (test_threshold > setParameter$threshold){
         val0 <- val
         grad0 <- grad_
@@ -403,10 +403,8 @@ gradOptimizer <- function(obj_fun,
         if(sign(grad_)*sign(grad0) < 0)
           r0 <- r0 / 2
       }
-      #relative <- abs((val - val0) / val0)
-      #test_threshold <- max(relative, abs(grad_))
-      relative <- (val - val0) / val0
-      test_threshold <- abs(grad_/relative)
+      relative <- abs((val - val0) / val0)
+      test_threshold <- max(relative, abs(grad_))
       if (test_threshold > setParameter$threshold){
         val0 <- val
         grad0 <- grad_
