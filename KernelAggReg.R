@@ -344,7 +344,7 @@ gradOptimizer <- function(obj_fun,
   if (is.numeric(setParameter$rate) | rate_GD == "auto") {
     while (i < setParameter$max_iter) {
       if(is.na(grad_)){
-        val0 <- val0 / 2
+        val0 <- runif(1, val/2, 3*val/2)
         grad_ = pracma::grad(
           f = obj_fun, 
           x0 = val0, 
@@ -387,7 +387,7 @@ gradOptimizer <- function(obj_fun,
   else{
     while (i < setParameter$max_iter) {
       if(is.na(grad_)){
-        val0 <- val0/2
+        val0 <- runif(1, val/2, 3*val/2)
         grad_ = pracma::grad(
           f = obj_fun, 
           x0 = val0, 
