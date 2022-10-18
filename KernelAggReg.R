@@ -352,7 +352,7 @@ gradOptimizer <- function(obj_fun,
         )
       }
       val <- val0 - lambda0 * grad_
-      if(val < 0){
+      if(val < 0 | is.na(val)){
         val <- val0/2
         lambda0 <- lambda0/2
       }
@@ -395,7 +395,7 @@ gradOptimizer <- function(obj_fun,
         )
       }
       val <- val0 - lambda0(i) * grad_
-      if(val < 0){
+      if(val < 0 | is.na(val)){
         val <- val0 / 2
         r0 <- r0 / 2
       }
