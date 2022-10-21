@@ -363,7 +363,7 @@ gradOptimizer <- function(obj_fun,
       }
       relative <- abs((val - val0) / val0)
       test_threshold <- max(relative, abs(grad_))
-      if (test_threshold > setParameter$threshold){
+      if ((test_threshold > setParameter$threshold) & (abs(val) > 1e-10)){
         val0 <- val
         grad0 <- grad_
       } else{
@@ -405,7 +405,7 @@ gradOptimizer <- function(obj_fun,
       }
       relative <- abs((val - val0) / val0)
       test_threshold <- max(relative, abs(grad_))
-      if (test_threshold > setParameter$threshold){
+      if ((test_threshold > setParameter$threshold) & (abs(val) > 1e-10)){
         val0 <- val
         grad0 <- grad_
       }
