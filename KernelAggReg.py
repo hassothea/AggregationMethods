@@ -3,7 +3,7 @@
 # ========================
 from sklearn.cluster import KMeans
 from sklearn.neighbors import KNeighborsRegressor
-from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor, AdaBoostRegressor
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor, AdaBoostRegressor, ExtraTreesRegressor
 from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.linear_model import RidgeCV, LassoCV, BayesianRidge, SGDRegressor
 from sklearn.tree import DecisionTreeRegressor
@@ -43,7 +43,7 @@ class KernelCAMRegressors(BaseEstimator):
                                    'speed' : 'constant',
                                    'n_tries' : int(5),
                                    'start' : None,
-                                   'max_iter' : 300,
+                                   'max_iter' : 100,
                                    'n_cv' : int(5)}):
         """
         This is a class of Kernel-based consensual aggregation method for regression of Has (2023).
@@ -130,6 +130,7 @@ class KernelCAMRegressors(BaseEstimator):
 
     def build_baisc_estimators(self):
         all_estimators = {
+            'extra_tree' : ExtraTreesRegressor(random_state=self.random_state),
             'knn' : KNeighborsRegressor(),
             'lasso' : LassoCV(),
             'ridge' : RidgeCV(),
@@ -150,6 +151,7 @@ class KernelCAMRegressors(BaseEstimator):
                               'ridge' : RidgeCV(),
                               'tree' : DecisionTreeRegressor(random_state=self.random_state),
                               'random_forest' : RandomForestRegressor(random_state=self.random_state),
+                              'extra_tree' : ExtraTreesRegressor(random_state=self.random_state),
                               'svm' : SVR()}
         else:
             for name in self.estimator_list:
@@ -165,7 +167,8 @@ class KernelCAMRegressors(BaseEstimator):
             'bayesian_ridge' : None,
             'sgd' : None,
             'adaboost' : None,
-            'gradient_boost' : None
+            'gradient_boost' : None,
+            'extra_tree' : None
         }
         self.basic_estimators = {}
         if self.estimator_param is not None:
