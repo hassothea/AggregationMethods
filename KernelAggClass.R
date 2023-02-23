@@ -392,11 +392,10 @@ dist_matrix <- function(basicMachines,
     shuffle <- 1:(n_cv-1) %>%
       rep(n_each_fold) %>%
       c(., rep(n_cv, n - n_each_fold * (n_cv - 1))) %>%
-      sample
+      sample()
   }else{
     shuffle <- id_shuffle
   }
-  print(shuffle)
   # the prediction matrix D_l
   df_ <- as.matrix(basicMachines$predict2)
   pair_dist <- function(M, N){
@@ -452,7 +451,8 @@ fit_parameter <- function(train_design,
   n_ker <- length(kernels)
   id_shuf <- NULL
   dist_all <- dist_matrix(basicMachines = mach2,
-                          n_cv = n_cv)
+                          n_cv = n_cv,
+                         id_shuffle = id_shuf)
   
   # Kernel functions
   # ================
