@@ -396,6 +396,7 @@ dist_matrix <- function(basicMachines,
   }else{
     shuffle <- id_shuffle
   }
+  print(shuffle)
   # the prediction matrix D_l
   df_ <- as.matrix(basicMachines$predict2)
   pair_dist <- function(M, N){
