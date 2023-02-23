@@ -353,7 +353,7 @@ gridOptimizer <- function(obj_func,
       tibble(x = param, 
              y = risk) %>%
         ggplot(aes(x = x, y = y)) +
-        geom_line(color = "skyblue", size = 0.75) +
+        geom_line(color = "skyblue", linewidth = 0.75) +
         geom_point(aes(x = opt_ep, y = opt_risk), color = "red") +
         geom_vline(xintercept = opt_ep, color = "red", linetype = "longdash") +
         labs(title = "Error as function of parameter", 
