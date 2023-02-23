@@ -428,6 +428,9 @@ fit_parameter <- function(train_design,
                           setMachineParam = setBasicParameter(),
                           setGridParam = setGridParameter(),
                           silent = FALSE){
+  if(is.vector(train_response)){
+    train_response = as.vector(train_response)
+  }
   kernels_lookup <- c("gaussian", "epanechnikov", "biweight", "triweight", "triangular", "naive")
   kernel_real <- kernels %>%
     map_chr(.f = ~ match.arg(.x, 
@@ -832,6 +835,9 @@ kernelAggClass <- function(train_design,
                            setGridParam = setGridParam,
                            silent = silent)
   # prediction
+  if(is.vector(test_response)){
+    test_response <- as.vector(test_response)
+  }
   pred <- predict_agg(fitted_models = fit_mod,
                       new_data = test_design,
                       test_response = test_response)
