@@ -35,7 +35,7 @@ class KernelCAMRegressors(BaseEstimator):
                 kernel = 'radial', 
                 estimator_list = None,
                 show_progress = True, 
-                estimator_param = None, 
+                estimator_params = None, 
                 optimize_method = "grid", 
                 optimize_params = {'bandwidth_list' : np.linspace(0.00001, 100, 300),
                                    'epsilon' : 10 ** (-10),
@@ -46,20 +46,27 @@ class KernelCAMRegressors(BaseEstimator):
                                    'max_iter' : 100,
                                    'n_cv' : int(5)}):
         """
-        This is a class of Kernel-based consensual aggregation method for regression of Has (2023).
-        Parameters
-        ----------
-        random_state: (default is `None`) set the random state of the random generators in the class.
+        This is a class of the implementation of the Kernel-based consensual aggregation method for regression by Has (2023).
+
+
+        * Parameters:
+        ------------
+        - random_state: (default is `None`) set the random state of the random generators in the class.
         kernel: (default is 'radial') the name of kernel function to be used for the aggregation. 
             It should be an element of the list ['exponential', 'gaussian', 'radial', 'epanechnikov', 'biweight', 'triweight', 'triangular', 'cobra', 'naive'].
             Some options such as 'gaussian' and 'radial' lead to the same gaussian kernel function. Same for 'cobra' and 'naive', corresponds to Biau et al. (2016).
-        estimator_list: (default is None) the list of intial estimators (machines). If None, intial estimators 'knn', 'ridge', 'lasso', 'tree', 'random_forest' and 'svm' are used.
+        
+        - estimator_list: (default is None) the list of intial estimators (machines). If None, intial estimators 'knn', 'ridge', 'lasso', 'tree', 'random_forest' and 'svm' are used.
             It should be a sublist of the following list: ['knn', 'ridge', 'lasso', 'tree', 'random_forest' and 'svm', 'sgd', 'bayesian_ridge', 'adaboost', 'gradient_boost'].
-        show_progress: (default is `True`) boolean defining whether or not to show the progress of the optimization algorithm.
-        estimator_param: (default is `None`) a dictionary of parameters of the basic estimators given in the `estimator_list` argument. It should be a dictionary containing the names of the basic estimators, 
+        
+        - show_progress: (default is `True`) boolean defining whether or not to show the progress of the optimization algorithm.
+        
+        - estimator_params: (default is `None`) a dictionary of parameters of the basic estimators given in the `estimator_list` argument. It should be a dictionary containing the names of the basic estimators, 
             which is also a dictionary of the names of its paremters.
-        optimize_method: (default is "grid") optimization algorithm for learning the bandwidth parameter. It should be either "grid" (grid search) or "grad" (gradient descent for non-compactly supported kernel such as radial kernel).
-        optimize_params: a dictionary of parameters of the optimization algorithm (both grid and grad). Its should be dictionary of the following elements:
+        
+        - optimize_method: (default is "grid") optimization algorithm for learning the bandwidth parameter. It should be either "grid" (grid search) or "grad" (gradient descent for non-compactly supported kernel such as radial kernel).
+        
+        - optimize_params: a dictionary of parameters of the optimization algorithm (both grid and grad). Its should be dictionary of the following elements:
             - 'bandwidth_list' : bandwidth grid for grid search algorithm
             - 'epsilon' : threshold to stop the gradient descent algorithm
             - 'learning_rate' : learning rate for grad algorithm
@@ -68,9 +75,23 @@ class KernelCAMRegressors(BaseEstimator):
             - 'start' : the initial value of the bandwidth parameter
             - 'max_iter' : maximum iteration of gradient descent algorithm
             - 'n_cv' : number of cross-validation folds.
-        Returns
-        -------
+
+        * Returns:
+        ---------
         self : returns an instance of self. 
+
+        * Methods: 
+        ---------
+        - fit : fitting the aggregation method on the design features (original data or predicted features).
+        - split_data : split the data into D_k = {(X_k,y_k)} and D_l = {(X_l,y_l)} to construct the estimators and perform aggregation respectively.
+        - build_basic_estimators : build basic estimators for the aggregation. It is also possible to set the values of (hyper) parameters for each estimators.
+        - load_predictions : to make predictions using constructed basic estimators.
+        - distances : construct distance matrix according to the kernel function used in the aggregation.
+        - kappa_cross_validation_error : the objective function to be minimized.
+        - optimize_bandwidth : the optimization method to estimate the optimal bendwidth parameter.
+        - predict : for building prediction on the new observations using any given bendwidth or the estimated one.
+        - plot_learning_curve : for plotting the graphic of learning algorithm (error vs parameter).
+
         """
         opt_param = {'bandwidth_list' : np.linspace(0.00001, 100, 300),
                      'epsilon' : 10 ** (-10),
@@ -78,7 +99,7 @@ class KernelCAMRegressors(BaseEstimator):
                      'speed' : 'constant',
                      'n_tries' : 5,
                      'start' : None,
-                     'max_iter' : 300,
+                     'max_iter' : 100,
                     'n_cv' : int(5)
                     }
         for obj in optimize_params:
@@ -89,11 +110,11 @@ class KernelCAMRegressors(BaseEstimator):
         self.kernel = kernel
         self.estimator_list = estimator_list
         self.show_progress = show_progress
-        self.estimator_param = estimator_param
+        self.estimator_params = estimator_params
         self.optimize_method = optimize_method
         self.optimize_params = opt_param
 
-    def fit(self, X, y, split = .5, X_k = None, y_k = None, X_l = None, y_l = None, as_predictions = False):
+    def fit(self, X, y, split = .5, overlap = 0, X_k = None, y_k = None, X_l = None, y_l = None, as_predictions = False):
         X, y = check_X_y(X, y)
         self.X_ = X
         self.y_ = y
@@ -104,7 +125,7 @@ class KernelCAMRegressors(BaseEstimator):
         self.as_predictions = as_predictions
         self.basic_estimtors = {}
         if not as_predictions:
-            self.split_data(split = split)
+            self.split_data(split = split, overlap=overlap)
             self.build_baisc_estimators()
             self.load_predictions()
             self.optimize_bandwidth(method = self.optimize_method, params = self.optimize_params)
@@ -117,15 +138,16 @@ class KernelCAMRegressors(BaseEstimator):
             self.optimize_bandwidth(method = self.optimize_method, params = self.optimize_params)
         return self
     
-    def split_data(self, split, k = None, shuffle_data = True):
+    def split_data(self, split, overlap, k = None, shuffle_data = True):
         if shuffle_data:
             self.X_, self.y_ = shuffle(self.X_, self.y_, random_state = self.random_state)
         if k is None:
-            k = int(len(self.y_) * split)
-        self.X_k_ = self.X_[:k,:]
-        self.X_l_ = self.X_[k:,:]
-        self.y_k_ = self.y_[:k]
-        self.y_l_ = self.y_[k:]
+            k1 = int(len(self.y_) * split)
+            k2 = int(len(self.y_) * (split+overlap))
+        self.X_k_ = self.X_[:k2,:]
+        self.X_l_ = self.X_[k1:,:]
+        self.y_k_ = self.y_[:k2]
+        self.y_l_ = self.y_[k1:]
         return self
 
     def build_baisc_estimators(self):
@@ -171,9 +193,9 @@ class KernelCAMRegressors(BaseEstimator):
             'extra_tree' : None
         }
         self.basic_estimators = {}
-        if self.estimator_param is not None:
-            for name in list(self.estimator_param):
-                param_dict[name] = self.estimator_param[name]
+        if self.estimator_params is not None:
+            for name in list(self.estimator_params):
+                param_dict[name] = self.estimator_params[name]
         for machine in self.estimator_names:
             try:
                 mod = estimator_dict[machine]
@@ -380,24 +402,24 @@ class KernelCAMRegressors(BaseEstimator):
                 print('\n\t* Gradient descent with '+ str(self.kernel) + ' kernel is implemented...')
                 print('\t\t~ Initial t = 0:    \t~ bandwidth: %.5f \t~ gradient: %.5f \t~ threshold: ' %(bw0, grad[0]), end = '')
                 print(str(self.optimize_params['epsilon']))
-                r0 = self.optimize_params['learning_rate'] / abs(grad)
-                rate = speed_list[self.optimize_params['speed']]
+                r0 = self.optimize_params['learning_rate'] / abs(grad)        # make the first step exactly equal to `learning-rate`.
+                rate = speed_list[self.optimize_params['speed']]              # the learning rate can be varied, and speed defines this change in learning rate.
                 count = 0
                 grad0 = grad
                 while count < self.optimize_params['max_iter']:
                     bw = bw0 - rate(count, r0) * grad
                     if bw < 0 or bw is None:
-                        bw = bw / 1.2
+                        bw = bw / 1.25
                     if count > 3:
                         if np.sign(grad)*np.sign(grad0) < 0:
-                            r0 = r0 / 1.2
+                            r0 = r0 / 1.25
                         if test_threshold > self.optimize_params['epsilon']:
                             bw0 = bw
                             grad0 = grad
                         else:
                             break
                     relative = abs((bw - bw0) / bw0)
-                    test_threshold = np.max([relative, abs(grad)])
+                    test_threshold = np.mean([relative, abs(grad)])
                     grad = optimize.approx_fprime(bw0, self.kappa_cross_validation_error, 10 ** (-100))
                     count += 1
                     print('\t\t~     Iteration: %d \t~ epsilon: %.5f \t~ gradient: %.5f \t~ max(change,grad): %.5f' % (count, bw[0], grad[0], test_threshold), end="\r")
@@ -414,10 +436,10 @@ class KernelCAMRegressors(BaseEstimator):
                 while count < self.optimize_params['max_iter']:
                     bw = bw0 - rate(count, r0) * grad
                     if bw < 0 or bw is None:
-                        bw = bw / 1.2
+                        bw = bw / 1.25
                     if count > 3:
                         if np.sign(grad)*np.sign(grad0) < 0:
-                            r0 = r0 / 1.2
+                            r0 = r0 / 1.25
                         if test_threshold > self.optimize_params['epsilon']:
                             bw0 = bw
                             grad0 = grad
@@ -481,6 +503,7 @@ class KernelCAMRegressors(BaseEstimator):
             plt.ylabel('prediction')
             plt.title('QQ-plot: actual Vs prediction')
             plt.legend()
+            plt.show()
         else:
             if self.optimize_outputs['opt_method'] == 'grid':
                 if self.kernel in ['naive', 'cobra']:
@@ -497,6 +520,7 @@ class KernelCAMRegressors(BaseEstimator):
                     axs.set_ylabel("number of estimators")
                     axs.set_zlabel("Kappa cross-validation error")
                     axs.view_init(30, 60)
+                    plt.show()
                 else:
                     plt.figure(figsize=(7, 3))
                     plt.plot(self.optimize_params['bandwidth_list'], self.optimize_outputs['kappa_cv_errors'])
@@ -506,6 +530,7 @@ class KernelCAMRegressors(BaseEstimator):
                     plt.scatter(self.optimize_outputs['opt_bandwidth'], self.optimize_outputs['kappa_cv_errors'][self.optimize_outputs['opt_index']], c = 'r')
                     plt.vlines(x=self.optimize_outputs['opt_bandwidth'], ymin=self.optimize_outputs['kappa_cv_errors'][self.optimize_outputs['opt_index']]/5, ymax=self.optimize_outputs['kappa_cv_errors'][self.optimize_outputs['opt_index']], colors='r', linestyles='--')
                     plt.hlines(y=self.optimize_outputs['kappa_cv_errors'][self.optimize_outputs['opt_index']], xmin=0, xmax=self.optimize_outputs['opt_bandwidth'], colors='r', linestyles='--')
+                    plt.show()
             else:
                 plt.figure(figsize=(7, 3))
                 plt.plot(range(len(self.optimize_outputs['bandwidth_collection'])), self.optimize_outputs['bandwidth_collection'])
@@ -513,3 +538,4 @@ class KernelCAMRegressors(BaseEstimator):
                 plt.xlabel('iteration')
                 plt.ylabel('bandwidth')
                 plt.hlines(y=self.optimize_outputs['bandwidth_collection'][-1], xmin=0, xmax=self.optimize_params['max_iter'], colors='r', linestyles='--')
+                plt.show()
