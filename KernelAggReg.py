@@ -4,32 +4,22 @@
 from sklearn.cluster import KMeans
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor, AdaBoostRegressor, ExtraTreesRegressor
-from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.linear_model import RidgeCV, LassoCV, BayesianRidge, SGDRegressor
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.svm import SVR
-from sklearn.model_selection import train_test_split
 from sklearn.utils import shuffle
-from sklearn.utils.validation import check_X_y, check_array, check_is_fitted
-from random import sample
+from sklearn.utils.validation import check_X_y
 from scipy import spatial, optimize
-from sklearn import metrics
-import warnings
-import math
-from sklearn import preprocessing
+from sklearn.metrics import mean_squared_error
 # Plotting figures
 import matplotlib.pyplot as plt
 from matplotlib import cm
-from mpl_toolkits import mplot3d
-from mpl_toolkits.mplot3d.axes3d import get_test_data
-from mpl_toolkits.mplot3d import Axes3D
 # Table type
 import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator
 
-
-class KernelCAMRegressors(BaseEstimator):
+class KernelCAMRegressor(BaseEstimator):
     def __init__(self, 
                 random_state = None, 
                 kernel = 'radial', 
@@ -37,14 +27,8 @@ class KernelCAMRegressors(BaseEstimator):
                 show_progress = True, 
                 estimator_params = None, 
                 optimize_method = "grid", 
-                optimize_params = {'bandwidth_list' : np.linspace(0.00001, 100, 300),
-                                   'epsilon' : 10 ** (-10),
-                                   'learning_rate' : 0.01,
-                                   'speed' : 'constant',
-                                   'n_tries' : int(5),
-                                   'start' : None,
-                                   'max_iter' : 100,
-                                   'n_cv' : int(5)}):
+                optimize_params = None,
+                kernel_params = None):
         """
         This is a class of the implementation of the Kernel-based consensual aggregation method for regression by Has (2023).
 
@@ -95,17 +79,27 @@ class KernelCAMRegressors(BaseEstimator):
         """
         opt_param = {'bandwidth_list' : np.linspace(0.00001, 100, 300),
                      'epsilon' : 10 ** (-10),
-                     'learning_rate' : 0.001,
+                     'learning_rate' : 0.1,
                      'speed' : 'constant',
-                     'n_tries' : 5,
+                     'n_tries' : int(5),
                      'start' : None,
-                     'max_iter' : 100,
-                    'n_cv' : int(5)
-                    }
-        for obj in optimize_params:
-            opt_param[obj] = optimize_params[obj]
+                     'max_iter' : 300,
+                    'n_cv' : int(5)}
+        
+        kernel_param = {
+            'alpha' : 2.0,
+            'sigma' : 1.0,
+            'precision' : 10 ** (-5)
+        }
+        if optimize_params is not None:
+            for obj in optimize_params:
+                opt_param[obj] = optimize_params[obj]
+        if kernel_params is not None:
+            for obj in kernel_params:
+                kernel_param[obj] = kernel_params[obj]
         if kernel not in ['radial', 'gaussian', 'exponential']:
             optimize_method = 'grid'
+        
         self.random_state = random_state
         self.kernel = kernel
         self.estimator_list = estimator_list
@@ -113,9 +107,23 @@ class KernelCAMRegressors(BaseEstimator):
         self.estimator_params = estimator_params
         self.optimize_method = optimize_method
         self.optimize_params = opt_param
+        self.kernel_params = kernel_param
+
+        list_kernels = {
+            'reverse_cosh' : lambda x,y: 1/np.cosh(-x*(y/self.kernel_params['sigma'])),
+            'exponential' : lambda x,y: np.exp(-y*(x/self.kernel_params['sigma']) ** self.kernel_params['alpha']),
+            'gaussian' : lambda x,y: np.exp(-x*y/self.kernel_params['sigma']),
+            'radial' : lambda x,y: np.exp(-x*y/self.kernel_params['sigma']),
+            'epanechnikov' : lambda x,y: (1 - x*y/self.kernel_params['sigma']) * (x*y/self.kernel_params['sigma'] < 1),
+            'biweight' : lambda x,y: (1-x*y/self.kernel_params['sigma']) ** 2 * (x*y/self.kernel_params['sigma'] < 1),
+            'triweight' : lambda x,y: (1-x*y/self.kernel_params['sigma']) ** 3 * (x*y/self.kernel_params['sigma'] < 1),
+            'triangular' : lambda x,y: (1-np.abs(x*y/self.kernel_params['sigma'])) * (x*y/self.kernel_params['sigma'] < 1),
+            'cobra' : lambda x,y: np.array(x*y/self.kernel_params['sigma']),
+            'naive' : lambda x,y: np.array(x*y/self.kernel_params['sigma'])
+        }
+        self.list_kernels = list_kernels
 
     def fit(self, X, y, split = .5, overlap = 0, X_k = None, y_k = None, X_l = None, y_l = None, as_predictions = False):
-        X, y = check_X_y(X, y)
         self.X_ = X
         self.y_ = y
         self.X_k_ = X_k
@@ -128,31 +136,31 @@ class KernelCAMRegressors(BaseEstimator):
             self.split_data(split = split, overlap=overlap)
             self.build_baisc_estimators()
             self.load_predictions()
-            self.optimize_bandwidth(method = self.optimize_method, params = self.optimize_params)
+            self.optimize_bandwidth(params = self.optimize_params)
         else:
             self.pred_X_l = pd.DataFrame(X)
             self.estimator_names = X.dtype.names
             self.number_estimators = X.shape[1]
             self.X_l_ = pd.DataFrame(X)
             self.y_l_ = y
-            self.optimize_bandwidth(method = self.optimize_method, params = self.optimize_params)
+            self.optimize_bandwidth(params = self.optimize_params)
         return self
     
     def split_data(self, split, overlap, k = None, shuffle_data = True):
         if shuffle_data:
             self.X_, self.y_ = shuffle(self.X_, self.y_, random_state = self.random_state)
         if k is None:
-            k1 = int(len(self.y_) * split)
-            k2 = int(len(self.y_) * (split+overlap))
-        self.X_k_ = self.X_[:k2,:]
-        self.X_l_ = self.X_[k1:,:]
-        self.y_k_ = self.y_[:k2]
-        self.y_l_ = self.y_[k1:]
+            k1 = int(len(self.y_) * (split-overlap/2))
+            k2 = int(len(self.y_) * (split+overlap/2))
+        self.X_k_ = self.X_.iloc[:k2,:]
+        self.X_l_ = self.X_.iloc[k1:,:]
+        self.y_k_ = self.y_.iloc[:k2]
+        self.y_l_ = self.y_.iloc[k1:]
         return self
 
     def build_baisc_estimators(self):
         all_estimators = {
-            'extra_tree' : ExtraTreesRegressor(random_state=self.random_state),
+            'extra_trees' : ExtraTreesRegressor(random_state=self.random_state),
             'knn' : KNeighborsRegressor(),
             'lasso' : LassoCV(),
             'ridge' : RidgeCV(),
@@ -173,7 +181,7 @@ class KernelCAMRegressors(BaseEstimator):
                               'ridge' : RidgeCV(),
                               'tree' : DecisionTreeRegressor(random_state=self.random_state),
                               'random_forest' : RandomForestRegressor(random_state=self.random_state),
-                              'extra_tree' : ExtraTreesRegressor(random_state=self.random_state),
+                              'extra_trees' : ExtraTreesRegressor(random_state=self.random_state),
                               'svm' : SVR()}
         else:
             for name in self.estimator_list:
@@ -190,7 +198,7 @@ class KernelCAMRegressors(BaseEstimator):
             'sgd' : None,
             'adaboost' : None,
             'gradient_boost' : None,
-            'extra_tree' : None
+            'extra_trees' : None
         }
         self.basic_estimators = {}
         if self.estimator_params is not None:
@@ -211,9 +219,9 @@ class KernelCAMRegressors(BaseEstimator):
                         mod.set_params(**param_dict[machine])
                     else:
                         mod.set_params(**param_dict[machine])
-                self.basic_estimators[machine] = mod.fit(self.X_k_, self.y_k_)
             except ValueError:
                 continue
+            self.basic_estimators[machine] = mod.fit(self.X_k_, self.y_k_)
         return self
 
     def load_predictions(self):
@@ -228,13 +236,13 @@ class KernelCAMRegressors(BaseEstimator):
         lk = pred_k.shape
         ll = pred_l.shape
         D = np.full(shape = (lk[0], ll[0]), fill_value = np.float32)
-        if distance in [None, "euclid", "euclidean", "l2", "L2"]:
+        if distance in [None, "l2"]:
             for i in range(lk[0]):
                 D[i,:] = (np.subtract(np.array(pred_k.iloc[i,:]), pred_l) ** 2).sum(axis = 1)
-        if distance in ["l1", "L1" ,"abs", "absolute"]:
+        if distance in ["l1"]:
             for i in range(lk[0]):
                 D[i,:] = np.abs(np.subtract(np.array(pred_k.iloc[i,:]), pred_l)).sum(axis = 1)
-        if distance in ["hamming", "binary", "naive"]:
+        if distance in ["naive"]:
             for i in range(lk[0]):
                 D[i,:] = [spatial.distance.hamming(np.array(pred_k.iloc[i,:]), pred_l.iloc[j,:]) for j in range(ll[0])]
         if fold is None:
@@ -242,50 +250,45 @@ class KernelCAMRegressors(BaseEstimator):
         else:
             self.distance_matrix[distance+str(fold)] = D
         return self
-
+    
     def kappa_cross_validation_error(self, bandwidth = 1):
-        list_kernels = {
-            'exponential' : lambda x: np.exp(-x*bandwidth),
-            'gaussian' : lambda x: np.exp(-x*bandwidth),
-            'radial' : lambda x: np.exp(-x*bandwidth),
-            'epanechnikov' : lambda x: (1 - x*bandwidth) * (x*bandwidth < 1),
-            'biweight' : lambda x: (1-x*bandwidth) ** 2 * (x*bandwidth < 1),
-            'triweight' : lambda x: (1-x*bandwidth) ** 3 * (x*bandwidth < 1),
-            'triangular' : lambda x: (1-np.abs(x*bandwidth)) * (x*bandwidth < 1),
-            'cobra' : lambda x: np.array(x*bandwidth),
-            'naive' : lambda x: np.array(x*bandwidth)
-        }
+        list_kernels = self.list_kernels
         if self.kernel in ['cobra', 'naive']:
             cost = np.full((self.optimize_params['n_cv'], self.number_estimators+1), fill_value = np.float32)
             for m in range(self.number_estimators+1):
                 for i in range(self.optimize_params['n_cv']):
-                    D_k = (list_kernels[self.kernel](np.float32(self.distance_matrix[self.distance+str(i)])) <= m/self.number_estimators)
+                    D_k = (list_kernels[self.kernel](np.float32(self.distance_matrix[self.distance+str(i)]), bandwidth) <= m/self.number_estimators)
                     D_k_ = np.sum(D_k, axis=0, dtype=np.float32)
                     D_k_[D_k_ == 0] = np.Inf
                     res = np.matmul(self.y_l_[self.index_each_fold[self.distance+str(i)]], D_k)/D_k_
-                    cost[i,self.number_estimators-m] = ((res - self.y_l_[~self.index_each_fold[self.distance+str(i)]]) ** 2).mean()
+                    cost[i,self.number_estimators-m] = mean_squared_error(res, self.y_l_[~self.index_each_fold[self.distance+str(i)]])
             cost_ = cost.mean(axis=0)
         else:
             cost = np.full(self.optimize_params['n_cv'], fill_value = np.float32)
             for i in range(self.optimize_params['n_cv']):
-                D_k = list_kernels[self.kernel](np.float32(self.distance_matrix[self.distance+str(i)]))
+                D_k = list_kernels[self.kernel](np.float32(self.distance_matrix[self.distance+str(i)]), bandwidth)
                 D_k_ = np.sum(D_k, axis=0, dtype=np.float32)
                 D_k_[D_k_ == 0] = np.Inf
                 res = np.matmul(self.y_l_[self.index_each_fold[self.distance+str(i)]], D_k)/D_k_
-                cost[i] = ((res - self.y_l_[~self.index_each_fold[self.distance+str(i)]]) ** 2).mean()
+                cost[i] = mean_squared_error(res, self.y_l_[~self.index_each_fold[self.distance+str(i)]])
             cost_ = cost.mean()
         return cost_
         
-    def optimize_bandwidth(self, method, params):
+    def optimize_bandwidth(self, params):
         def select_best_index(arr):
             l, c = arr.shape
             if l > 1:
                 return arr[l//2,:]
             else:
                 return arr
+            
+        def gradient(f, x0, eps = self.kernel_params['precision']):
+            return np.array([(f(x0+eps) - f(x0-eps))/(2*eps)])
+        
         kernel_to_dist = {'naive' : 'naive',
                           'cobra' : 'naive',
                           '0-1' : 'naive',
+                          'reverse_cosh' : 'l2',
                           'uniform' : 'naive',
                           'exponential' : 'l2',
                           'gaussian' : 'l2',
@@ -312,7 +315,7 @@ class KernelCAMRegressors(BaseEstimator):
                 x_l = self.pred_X_l.iloc[~idx,:]
             self.distances(pred_k=x_k, pred_l=x_l, distance=self.distance, fold=i)
             self.index_each_fold[self.distance+str(i)] = idx
-        if self.optimize_method in ['grid', 'grid search']:
+        if self.optimize_method in ['grid', 'grid_search', 'grid search']:
             n_iter = len(params['bandwidth_list'])
             if self.kernel in ['cobra', 'naive']:
                 errors = np.full((n_iter, self.number_estimators+1), np.float32)
@@ -384,7 +387,6 @@ class KernelCAMRegressors(BaseEstimator):
             errors = np.full(n_iter, float)
             collect_bw = []
             gradients = []
-            initial_tries = []
             speed_list = {
                 'constant' : lambda x, y: y,
                 'log' : lambda x, y: np.log(1+x) * y,
@@ -394,13 +396,14 @@ class KernelCAMRegressors(BaseEstimator):
             }
             if self.optimize_params['start'] is None:
                 bws = np.linspace(0.0001, 1/np.var(self.y_l_), num = self.optimize_params['n_tries'])
-            for i in range(self.optimize_params['n_tries']):
-                initial_tries.append(self.kappa_cross_validation_error(bandwidth=bws[i]))
+                initial_tries = [self.kappa_cross_validation_error(bandwidth=b) for b in bws]
                 bw0 = bws[np.argmin(initial_tries)]
-                grad = optimize.approx_fprime(bw0, self.kappa_cross_validation_error, 10 ** (-100))
+            else:
+                bw0 = self.optimize_params['start']
+            grad = gradient(self.kappa_cross_validation_error, bw0, self.kernel_params['precision'])
             if self.show_progress:
                 print('\n\t* Gradient descent with '+ str(self.kernel) + ' kernel is implemented...')
-                print('\t\t~ Initial t = 0:    \t~ bandwidth: %.5f \t~ gradient: %.5f \t~ threshold: ' %(bw0, grad[0]), end = '')
+                print('\t\t~ Initial t = 0:    \t~ bandwidth: %.3f \t~ gradient: %.3f \t~ threshold: ' %(bw0, grad[0]), end = '')
                 print(str(self.optimize_params['epsilon']))
                 r0 = self.optimize_params['learning_rate'] / abs(grad)        # make the first step exactly equal to `learning-rate`.
                 rate = speed_list[self.optimize_params['speed']]              # the learning rate can be varied, and speed defines this change in learning rate.
@@ -408,26 +411,24 @@ class KernelCAMRegressors(BaseEstimator):
                 grad0 = grad
                 while count < self.optimize_params['max_iter']:
                     bw = bw0 - rate(count, r0) * grad
-                    if bw < 0 or bw is None:
+                    if bw < 0 or np.isnan(bw):
                         bw = bw / 1.25
                     if count > 3:
                         if np.sign(grad)*np.sign(grad0) < 0:
                             r0 = r0 / 1.25
                         if test_threshold > self.optimize_params['epsilon']:
-                            bw0 = bw
-                            grad0 = grad
+                            bw0, grad0 = bw, grad
                         else:
                             break
                     relative = abs((bw - bw0) / bw0)
                     test_threshold = np.mean([relative, abs(grad)])
-                    grad = optimize.approx_fprime(bw0, self.kappa_cross_validation_error, 10 ** (-100))
+                    grad = gradient(self.kappa_cross_validation_error, bw0, self.kernel_params['precision'])
                     count += 1
-                    print('\t\t~     Iteration: %d \t~ epsilon: %.5f \t~ gradient: %.5f \t~ max(change,grad): %.5f' % (count, bw[0], grad[0], test_threshold), end="\r")
+                    print('\t\t~     Iteration: %d \t~ epsilon: %.3f \t~ gradient: %.3f \t~ stopping criterion: %.3f' % (count, bw[0], grad[0], test_threshold), end="\r")
                     collect_bw.append(bw[0])
                     gradients.append(grad[0])
-                if self.show_progress:
-                    print("                                                                                                                                                                            ", end = '\r')
-                    print('\t\t~    Stopped at: %d \t~ epsilon: %.5f \t~ gradient: %.5f \t~ max(change,grad): %.5f' % (count, bw[0], grad[0], test_threshold))
+                print("                                                                                                                                                                            ", end = '\r')
+                print('\t\t~    Stopped at: %d \t~ epsilon: %.3f \t~ gradient: %.3f \t~ stopping criterion: %.3f' % (count, bw[0], grad[0], test_threshold))
             else:
                 r0 = self.optimize_params['learning_rate'] / abs(grad)
                 rate = speed_list[self.optimize_params['speed']]
@@ -435,19 +436,18 @@ class KernelCAMRegressors(BaseEstimator):
                 grad0 = grad
                 while count < self.optimize_params['max_iter']:
                     bw = bw0 - rate(count, r0) * grad
-                    if bw < 0 or bw is None:
+                    if bw < 0 or np.isnan(bw):
                         bw = bw / 1.25
                     if count > 3:
                         if np.sign(grad)*np.sign(grad0) < 0:
                             r0 = r0 / 1.25
                         if test_threshold > self.optimize_params['epsilon']:
-                            bw0 = bw
-                            grad0 = grad
+                            bw0, grad0 = bw, grad
                         else:
                             break
                     relative = abs((bw - bw0) / bw0)
-                    test_threshold = np.max([relative, abs(grad)])
-                    grad = optimize.approx_fprime(bw0, self.kappa_cross_validation_error, 10 ** (-100))
+                    test_threshold = np.mean([relative, abs(grad)])
+                    grad = gradient(self.kappa_cross_validation_error, bw0, self.kernel_params['precision'])
                     count += 1
                     collect_bw.append(bw[0])
                     gradients.append(grad[0])
@@ -457,8 +457,8 @@ class KernelCAMRegressors(BaseEstimator):
                 'opt_method' : 'grad',
                 'opt_bandwidth' : opt_bw,
                 'bandwidth_collection' : collect_bw,
-                'gradients': gradients,
-                'kappa_cv_errors': np.array([self.kappa_cross_validation_error(b) for b in collect_bw])
+                'gradients': gradients
+                #'kappa_cv_errors': np.array([self.kappa_cross_validation_error(b) for b in collect_bw])
             }
         return self
 
@@ -471,7 +471,7 @@ class KernelCAMRegressors(BaseEstimator):
             self.pred_features_test = {}
             for machine in self.estimator_names:
                 self.pred_features_test[machine] = self.basic_estimators[machine].predict(X)
-        self.pred_features_x_test = pd.DataFrame(self.pred_features_test)
+        self.pred_features_x_test = pd.DataFrame(self.pred_features_test, columns=self.estimator_names)
         list_kernels = {
             'gaussian' : lambda x: np.exp(-x*bandwidth),
             'radial' : lambda x: np.exp(-x*bandwidth),
@@ -494,15 +494,23 @@ class KernelCAMRegressors(BaseEstimator):
         res[res == 0] = res[res != 0].mean()
         self.test_prediction = res
         return res
-    def plot_learning_curve(self, y_test = None,  fig_type = 'qq'):
+        
+    def plot_learning_curve(self, y_test = None,  fig_type = 'qq', save_fig = False, fig_path = None, dpi = None):
         if (y_test is not None) and (fig_type in ['qq', 'qq-plot', 'qqplot', 'QQ-plot', 'QQplot']):
-            plt.figure(figsize=(7, 3))
+            fig = plt.figure(figsize=(7, 3))
             plt.plot(y_test, y_test, 'r')
             plt.scatter(y_test, self.test_prediction)
             plt.xlabel('y_test')
             plt.ylabel('prediction')
             plt.title('QQ-plot: actual Vs prediction')
             plt.legend()
+            if save_fig:
+              if dpi is None:
+                dpi = 800
+                if fig_path is not None:
+                  plt.savefig("qqplot_aggregation.png", format = 'png', dpi=dpi, bbox_inches='tight')
+                else:
+                  plt.savefig(fig_path, format = 'png', dpi=dpi, bbox_inches='tight')
             plt.show()
         else:
             if self.optimize_outputs['opt_method'] == 'grid':
@@ -515,27 +523,61 @@ class KernelCAMRegressors(BaseEstimator):
                     axs = fig.add_subplot(projection='3d')
                     surf = axs.plot_surface(bandwidths, num_estimators, err, cmap=cm.coolwarm, linewidth=0, antialiased=False)
                     axs.plot(band_opt, num_opt, self.optimize_outputs['kappa_cv_errors'][self.optimize_outputs['opt_index'], num_opt], 'o')
-                    axs.set_title("Errors Vs bandwidth and number of estimators ("+ str(self.kernel)+ " kernel)")
+                    axs.set_title("Errors Vs bandwidths and number of estimators ("+ str(self.kernel)+ " kernel)")
                     axs.set_xlabel("bandwidth")
                     axs.set_ylabel("number of estimators")
                     axs.set_zlabel("Kappa cross-validation error")
                     axs.view_init(30, 60)
+                    if save_fig:
+                      if dpi is None:
+                        dpi = 800
+                      if fig_path is not None:
+                        plt.savefig("fig_learning_surface.png", format = 'png', dpi=dpi, bbox_inches='tight')
+                      else:
+                        plt.savefig(fig_path, format = 'png', dpi=dpi, bbox_inches='tight')
                     plt.show()
                 else:
                     plt.figure(figsize=(7, 3))
                     plt.plot(self.optimize_params['bandwidth_list'], self.optimize_outputs['kappa_cv_errors'])
-                    plt.title('Kappa cross-validation error Vs bandwidth paramter (grid search)')
+                    plt.title('Errors Vs bandwidths (grid search)')
                     plt.xlabel('bandwidth')
                     plt.ylabel('error')
                     plt.scatter(self.optimize_outputs['opt_bandwidth'], self.optimize_outputs['kappa_cv_errors'][self.optimize_outputs['opt_index']], c = 'r')
                     plt.vlines(x=self.optimize_outputs['opt_bandwidth'], ymin=self.optimize_outputs['kappa_cv_errors'][self.optimize_outputs['opt_index']]/5, ymax=self.optimize_outputs['kappa_cv_errors'][self.optimize_outputs['opt_index']], colors='r', linestyles='--')
                     plt.hlines(y=self.optimize_outputs['kappa_cv_errors'][self.optimize_outputs['opt_index']], xmin=0, xmax=self.optimize_outputs['opt_bandwidth'], colors='r', linestyles='--')
+                    if save_fig:
+                      if dpi is None:
+                        dpi = 800
+                      if fig_path is not None:
+                        plt.savefig("fig_learning_curve.png", format = 'png', dpi=dpi, bbox_inches='tight')
+                      else:
+                        plt.savefig(fig_path, format = 'png', dpi=dpi, bbox_inches='tight')
                     plt.show()
             else:
-                plt.figure(figsize=(7, 3))
-                plt.plot(range(len(self.optimize_outputs['bandwidth_collection'])), self.optimize_outputs['bandwidth_collection'])
-                plt.title('Kappa cross-validation error Vs bandwidth parameter (gradient descent)')
-                plt.xlabel('iteration')
-                plt.ylabel('bandwidth')
-                plt.hlines(y=self.optimize_outputs['bandwidth_collection'][-1], xmin=0, xmax=self.optimize_params['max_iter'], colors='r', linestyles='--')
+                fig = plt.figure(figsize=(10, 3))
+                ax1 = fig.add_subplot(1,2,1)
+                ax1.plot(range(len(self.optimize_outputs['bandwidth_collection'])), self.optimize_outputs['bandwidth_collection'])
+                ax1.hlines(y=self.optimize_outputs['bandwidth_collection'][-1], xmin=0, xmax=self.optimize_params['max_iter'], colors='r', linestyles='--')
+                ax1.set_title('Bandwidths at each iteration (gradient descent)')
+                ax1.set_xlabel('iteration')
+                ax1.set_ylabel('bandwidth')
+                
+                ax2 = fig.add_subplot(1,2,2)
+                param_range = np.linspace(self.optimize_outputs['opt_bandwidth']/5, self.optimize_outputs['opt_bandwidth']*5, 20)
+                errors = [self.kappa_cross_validation_error(b) for b in param_range] 
+                opt_error = self.kappa_cross_validation_error(self.optimize_outputs['opt_bandwidth']) 
+                ax2.plot(param_range, errors)
+                ax2.set_title('Errors Vs bandwidths')
+                ax2.set_xlabel('bandwidth')
+                ax2.set_ylabel('error')
+                ax2.scatter(self.optimize_outputs['opt_bandwidth'], opt_error, c = 'r')
+                ax2.vlines(x=self.optimize_outputs['opt_bandwidth'], ymin=opt_error/5, ymax=opt_error, colors='r', linestyles='--')
+                ax2.hlines(y=opt_error, xmin=0, xmax=self.optimize_outputs['opt_bandwidth'], colors='r', linestyles='--')
+                if save_fig:
+                  if dpi is None:
+                    dpi = 800
+                    if fig_path is not None:
+                      plt.savefig("fig_learning_curve.png", format = 'png', dpi=dpi, bbox_inches='tight')
+                    else:
+                      plt.savefig(fig_path, format = 'png', dpi=dpi, bbox_inches='tight')
                 plt.show()
