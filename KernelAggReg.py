@@ -124,7 +124,10 @@ class KernelCAMRegressor(BaseEstimator):
         self.list_kernels = list_kernels
 
     def fit(self, X, y, split = .5, overlap = 0, X_k = None, y_k = None, X_l = None, y_l = None, as_predictions = False):
-        self.X_ = X
+        X_ = X.copy()
+        if not isinstance(X, pd.core.frame.DataFrame):
+            X_ = pd.DataFrame(X)
+        self.X_ = X_
         self.y_ = y
         self.X_k_ = X_k
         self.X_l_ = X_l
@@ -154,8 +157,8 @@ class KernelCAMRegressor(BaseEstimator):
             k2 = int(len(self.y_) * (split+overlap/2))
         self.X_k_ = self.X_.iloc[:k2,:]
         self.X_l_ = self.X_.iloc[k1:,:]
-        self.y_k_ = self.y_.iloc[:k2]
-        self.y_l_ = self.y_.iloc[k1:]
+        self.y_k_ = self.y_[:k2]
+        self.y_l_ = self.y_[k1:]
         return self
 
     def build_baisc_estimators(self):
@@ -231,25 +234,45 @@ class KernelCAMRegressor(BaseEstimator):
         self.pred_X_l = pd.DataFrame(self.pred_features)
         self.number_estimators = len(self.estimator_names)
         return self
-
-    def distances(self, pred_k = None, pred_l = None, distance = None, fold = None):
-        lk = pred_k.shape
-        ll = pred_l.shape
-        D = np.full(shape = (lk[0], ll[0]), fill_value = np.float32)
-        if distance in [None, "l2"]:
-            for i in range(lk[0]):
-                D[i,:] = (np.subtract(np.array(pred_k.iloc[i,:]), pred_l) ** 2).sum(axis = 1)
-        if distance in ["l1"]:
-            for i in range(lk[0]):
-                D[i,:] = np.abs(np.subtract(np.array(pred_k.iloc[i,:]), pred_l)).sum(axis = 1)
-        if distance in ["naive"]:
-            for i in range(lk[0]):
-                D[i,:] = [spatial.distance.hamming(np.array(pred_k.iloc[i,:]), pred_l.iloc[j,:]) for j in range(ll[0])]
-        if fold is None:
-            self.distance_matrix[distance] = D
+    
+    def distances(self, x, pred_test = None, p = 2):
+        if pred_test is None:
+            ids = pd.DataFrame({'shuffle': list(range(self.optimize_params['n_cv']))})
+            self.index_shuffled = ids.sample(x.shape[0], replace=True).shuffle.values
+            if p != 0:
+                self.distance_matrix = spatial.distance_matrix(x,x,p) ** 2
+            else:
+                dis = np.ndarray(shape=(x.shape[0], x.shape[0]))
+                for i in range(x.shape[0]):
+                    dis[i,:] = [spatial.distance.hamming(x[i,:], x[j,:]) for j in range(x.shape[0])]
+                self.distance_matrix = dis
         else:
-            self.distance_matrix[distance+str(fold)] = D
-        return self
+            if p != 0:
+                self.distance_matrix_test = spatial.distance_matrix(x,pred_test,p) ** 2
+            else:
+                dis = np.ndarray(shape=(x.shape[0], pred_test.shape[0]))
+                for i in range(x.shape[0]):
+                    dis[i,:] = [spatial.distance.hamming(x[i,:], pred_test[j,:]) for j in range(pred_test.shape[0])]
+                self.distance_matrix_test = dis
+
+    # def distances(self, pred_k = None, pred_l = None, distance = None, fold = None):
+    #     lk = pred_k.shape
+    #     ll = pred_l.shape
+    #     D = np.full(shape = (lk[0], ll[0]), fill_value = np.float32)
+    #     if distance in [None, "l2"]:
+    #         for i in range(lk[0]):
+    #             D[i,:] = (np.subtract(np.array(pred_k.iloc[i,:]), pred_l) ** 2).sum(axis = 1)
+    #     if distance in ["l1"]:
+    #         for i in range(lk[0]):
+    #             D[i,:] = np.abs(np.subtract(np.array(pred_k.iloc[i,:]), pred_l)).sum(axis = 1)
+    #     if distance in ["naive"]:
+    #         for i in range(lk[0]):
+    #             D[i,:] = [spatial.distance.hamming(np.array(pred_k.iloc[i,:]), pred_l.iloc[j,:]) for j in range(ll[0])]
+    #     if fold is None:
+    #         self.distance_matrix[distance] = D
+    #     else:
+    #         self.distance_matrix[distance+str(fold)] = D
+    #     return self
     
     def kappa_cross_validation_error(self, bandwidth = 1):
         list_kernels = self.list_kernels
@@ -257,20 +280,20 @@ class KernelCAMRegressor(BaseEstimator):
             cost = np.full((self.optimize_params['n_cv'], self.number_estimators+1), fill_value = np.float32)
             for m in range(self.number_estimators+1):
                 for i in range(self.optimize_params['n_cv']):
-                    D_k = (list_kernels[self.kernel](np.float32(self.distance_matrix[self.distance+str(i)]), bandwidth) <= m/self.number_estimators)
+                    D_k = (list_kernels[self.kernel](self.distance_matrix[self.index_shuffled != i,:][:,self.index_shuffled == i], bandwidth) <= m/self.number_estimators)
                     D_k_ = np.sum(D_k, axis=0, dtype=np.float32)
                     D_k_[D_k_ == 0] = np.Inf
-                    res = np.matmul(self.y_l_[self.index_each_fold[self.distance+str(i)]], D_k)/D_k_
-                    cost[i,self.number_estimators-m] = mean_squared_error(res, self.y_l_[~self.index_each_fold[self.distance+str(i)]])
+                    res = np.matmul(self.y_l_[self.index_shuffled != i], D_k)/D_k_
+                    cost[i,self.number_estimators-m] = mean_squared_error(res, self.y_l_[self.index_shuffled == i])
             cost_ = cost.mean(axis=0)
         else:
             cost = np.full(self.optimize_params['n_cv'], fill_value = np.float32)
             for i in range(self.optimize_params['n_cv']):
-                D_k = list_kernels[self.kernel](np.float32(self.distance_matrix[self.distance+str(i)]), bandwidth)
+                D_k = list_kernels[self.kernel](self.distance_matrix[self.index_shuffled != i,:][:,self.index_shuffled == i], bandwidth)
                 D_k_ = np.sum(D_k, axis=0, dtype=np.float32)
                 D_k_[D_k_ == 0] = np.Inf
-                res = np.matmul(self.y_l_[self.index_each_fold[self.distance+str(i)]], D_k)/D_k_
-                cost[i] = mean_squared_error(res, self.y_l_[~self.index_each_fold[self.distance+str(i)]])
+                res = np.matmul(self.y_l_[self.index_shuffled != i], D_k)/D_k_
+                cost[i] = mean_squared_error(res, self.y_l_[self.index_shuffled == i])
             cost_ = cost.mean()
         return cost_
         
@@ -278,13 +301,13 @@ class KernelCAMRegressor(BaseEstimator):
         def select_best_index(arr):
             l, c = arr.shape
             if l > 1:
-                return arr[l//2,:]
+                return arr[l//2,]
             else:
                 return arr
             
         def gradient(f, x0, eps = self.kernel_params['precision']):
             return np.array([(f(x0+eps) - f(x0-eps))/(2*eps)])
-        
+
         kernel_to_dist = {'naive' : 'naive',
                           'cobra' : 'naive',
                           '0-1' : 'naive',
@@ -302,19 +325,13 @@ class KernelCAMRegressor(BaseEstimator):
         self.distance_matrix = {}
         self.index_each_fold = {}
         self.distance = kernel_to_dist[self.kernel]
-        st = len(self.y_l_) // params['n_cv']
-        for i in range(params['n_cv']):
-            idx = np.full(len(self.y_l_), True)
-            if i < params['n_cv'] - 1:
-                idx[int(i*st):int((i+1)*st)] = False
-                x_k = self.pred_X_l.iloc[idx,:]
-                x_l = self.pred_X_l.iloc[~idx,:]
-            else:
-                idx[int((params['n_cv']-1)*st):] = False
-                x_k = self.pred_X_l.iloc[idx,:]
-                x_l = self.pred_X_l.iloc[~idx,:]
-            self.distances(pred_k=x_k, pred_l=x_l, distance=self.distance, fold=i)
-            self.index_each_fold[self.distance+str(i)] = idx
+        if self.distance in ['l2', None]:
+            self.p_ = 2
+        elif self.distance in ['l1']:
+            self.p_ = 1
+        else:
+            self.p_ = 0
+        self.distances(self.pred_X_l, p = self.p_)
         if self.optimize_method in ['grid', 'grid_search', 'grid search']:
             n_iter = len(params['bandwidth_list'])
             if self.kernel in ['cobra', 'naive']:
@@ -337,10 +354,10 @@ class KernelCAMRegressor(BaseEstimator):
                                 print("=|100%")
                             m += 1
                         count += 1
-                        errors[iter, :] = self.kappa_cross_validation_error(bandwidth=params['bandwidth_list'][iter])
+                        errors[iter,:] = self.kappa_cross_validation_error(bandwidth=params['bandwidth_list'][iter])
                 else:
                     for iter in range(n_iter):
-                        errors[iter, :] = self.kappa_cross_validation_error(bandwidth=params['bandwidth_list'][iter])
+                        errors[iter,:] = self.kappa_cross_validation_error(bandwidth=params['bandwidth_list'][iter])
                 opt_risk = np.min(np.min(errors))
                 opt_id = select_best_index(np.array(np.where(errors == opt_risk)))
                 self.optimize_outputs = {
@@ -351,7 +368,7 @@ class KernelCAMRegressor(BaseEstimator):
                     'kappa_cv_errors': errors
                 }
             else:
-                errors = np.full(n_iter, float)
+                errors = np.full(n_iter, np.float64)
                 if self.show_progress:
                     print('\n\t-> Grid search algorithm with '+ str(self.kernel) + ' kernel is in progress...')
                     print('\t\t~ Full process|--------------------------------------------------|100%')
@@ -375,10 +392,11 @@ class KernelCAMRegressor(BaseEstimator):
                     for iter in range(n_iter):
                         errors[iter] = self.kappa_cross_validation_error(bandwidth=params['bandwidth_list'][iter])
                 opt_risk = np.min(np.min(errors))
-                opt_id = select_best_index(np.array(np.where(errors == opt_risk)))
+                opt_id = select_best_index(np.array(np.where(errors == opt_risk)).reshape((-1,1)))
+                print(opt_id)
                 self.optimize_outputs = {
                     'opt_method' : 'grid',
-                    'opt_bandwidth' : self.optimize_params['bandwidth_list'][opt_id[0]][0],
+                    'opt_bandwidth' : self.optimize_params['bandwidth_list'][opt_id[0]],
                     'opt_index': opt_id[0],
                     'kappa_cv_errors': errors
                 }
@@ -472,23 +490,13 @@ class KernelCAMRegressor(BaseEstimator):
             for machine in self.estimator_names:
                 self.pred_features_test[machine] = self.basic_estimators[machine].predict(X)
         self.pred_features_x_test = pd.DataFrame(self.pred_features_test, columns=self.estimator_names)
-        list_kernels = {
-            'gaussian' : lambda x: np.exp(-x*bandwidth),
-            'radial' : lambda x: np.exp(-x*bandwidth),
-            'epanechnikov' : lambda x: (1 - x*bandwidth) * (x*bandwidth < 1),
-            'biweight' : lambda x: (1-x*bandwidth) ** 2 * (x*bandwidth < 1),
-            'triweight' : lambda x: (1-x*bandwidth) ** 3 * (x*bandwidth < 1),
-            'triangular' : lambda x: (1-np.abs(x*bandwidth)) * (x*bandwidth < 1),
-            'cobra' : lambda x: np.array(x*bandwidth),
-            'naive' : lambda x: np.array(x*bandwidth)
-        }
-        self.distances(pred_k=self.pred_X_l, pred_l=self.pred_features_x_test, distance=self.distance, fold=None)
+        self.distances(x = self.pred_X_l, pred_test = self.pred_features_x_test, p = self.p_)
         if self.kernel in ['cobra', 'naive']:
-            D_k = (list_kernels[self.kernel](np.float32(self.distance_matrix[self.distance])) <= (self.optimize_outputs['number_retained_estimators'])/self.number_estimators)
+            D_k = (self.list_kernels[self.kernel](np.float64(self.distance_matrix_test), bandwidth) <= (self.optimize_outputs['number_retained_estimators'])/self.number_estimators)
             
         else:
-            D_k = list_kernels[self.kernel](np.array(self.distance_matrix[self.distance], dtype=np.float32))
-        D_k_ = np.sum(D_k, axis=0, dtype=np.float32)
+            D_k = self.list_kernels[self.kernel](self.distance_matrix_test, bandwidth)
+        D_k_ = np.sum(D_k, axis=0, dtype=np.float64)
         D_k_[D_k_ == 0] = np.Inf
         res = np.matmul(self.y_l_, D_k)/D_k_
         res[res == 0] = res[res != 0].mean()
@@ -511,7 +519,7 @@ class KernelCAMRegressor(BaseEstimator):
                   plt.savefig("qqplot_aggregation.png", format = 'png', dpi=dpi, bbox_inches='tight')
                 else:
                   plt.savefig(fig_path, format = 'png', dpi=dpi, bbox_inches='tight')
-            plt.show()
+            #plt.show()
         else:
             if self.optimize_outputs['opt_method'] == 'grid':
                 if self.kernel in ['naive', 'cobra']:
@@ -531,11 +539,11 @@ class KernelCAMRegressor(BaseEstimator):
                     if save_fig:
                       if dpi is None:
                         dpi = 800
-                      if fig_path is not None:
+                      if fig_path is None:
                         plt.savefig("fig_learning_surface.png", format = 'png', dpi=dpi, bbox_inches='tight')
                       else:
                         plt.savefig(fig_path, format = 'png', dpi=dpi, bbox_inches='tight')
-                    plt.show()
+                    #plt.show()
                 else:
                     plt.figure(figsize=(7, 3))
                     plt.plot(self.optimize_params['bandwidth_list'], self.optimize_outputs['kappa_cv_errors'])
@@ -548,11 +556,11 @@ class KernelCAMRegressor(BaseEstimator):
                     if save_fig:
                       if dpi is None:
                         dpi = 800
-                      if fig_path is not None:
+                      if fig_path is None:
                         plt.savefig("fig_learning_curve.png", format = 'png', dpi=dpi, bbox_inches='tight')
                       else:
                         plt.savefig(fig_path, format = 'png', dpi=dpi, bbox_inches='tight')
-                    plt.show()
+                    #plt.show()
             else:
                 fig = plt.figure(figsize=(10, 3))
                 ax1 = fig.add_subplot(1,2,1)
@@ -576,8 +584,8 @@ class KernelCAMRegressor(BaseEstimator):
                 if save_fig:
                   if dpi is None:
                     dpi = 800
-                    if fig_path is not None:
+                    if fig_path is None:
                       plt.savefig("fig_learning_curve.png", format = 'png', dpi=dpi, bbox_inches='tight')
                     else:
                       plt.savefig(fig_path, format = 'png', dpi=dpi, bbox_inches='tight')
-                plt.show()
+                #plt.show()
