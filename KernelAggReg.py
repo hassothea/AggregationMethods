@@ -97,7 +97,7 @@ class KernelCAMRegressor(BaseEstimator):
         if kernel_params is not None:
             for obj in kernel_params:
                 kernel_param[obj] = kernel_params[obj]
-        if kernel not in ['radial', 'gaussian', 'exponential']:
+        if kernel not in ['radial', 'gaussian', 'exponential', 'reverse_cosh']:
             optimize_method = 'grid'
         
         self.random_state = random_state
@@ -119,7 +119,8 @@ class KernelCAMRegressor(BaseEstimator):
             'triweight' : lambda x,y: (1-x*y/self.kernel_params['sigma']) ** 3 * (x*y/self.kernel_params['sigma'] < 1),
             'triangular' : lambda x,y: (1-np.abs(x*y/self.kernel_params['sigma'])) * (x*y/self.kernel_params['sigma'] < 1),
             'cobra' : lambda x,y: np.array(x*y/self.kernel_params['sigma']),
-            'naive' : lambda x,y: np.array(x*y/self.kernel_params['sigma'])
+            'naive' : lambda x,y: np.array(x*y/self.kernel_params['sigma']),
+            'cauchy' : lambda x,y: 1/(1 + np.array(x*y/self.kernel_params['sigma']))
         }
         self.list_kernels = list_kernels
 
@@ -258,7 +259,7 @@ class KernelCAMRegressor(BaseEstimator):
     # def distances(self, pred_k = None, pred_l = None, distance = None, fold = None):
     #     lk = pred_k.shape
     #     ll = pred_l.shape
-    #     D = np.full(shape = (lk[0], ll[0]), fill_value = np.float32)
+    #     D = np.full(shape = (lk[0], ll[0]), fill_value = np.float64)
     #     if distance in [None, "l2"]:
     #         for i in range(lk[0]):
     #             D[i,:] = (np.subtract(np.array(pred_k.iloc[i,:]), pred_l) ** 2).sum(axis = 1)
@@ -277,20 +278,20 @@ class KernelCAMRegressor(BaseEstimator):
     def kappa_cross_validation_error(self, bandwidth = 1):
         list_kernels = self.list_kernels
         if self.kernel in ['cobra', 'naive']:
-            cost = np.full((self.optimize_params['n_cv'], self.number_estimators+1), fill_value = np.float32)
+            cost = np.full((self.optimize_params['n_cv'], self.number_estimators+1), fill_value = np.float64)
             for m in range(self.number_estimators+1):
                 for i in range(self.optimize_params['n_cv']):
                     D_k = (list_kernels[self.kernel](self.distance_matrix[self.index_shuffled != i,:][:,self.index_shuffled == i], bandwidth) <= m/self.number_estimators)
-                    D_k_ = np.sum(D_k, axis=0, dtype=np.float32)
+                    D_k_ = np.sum(D_k, axis=0, dtype=np.float64)
                     D_k_[D_k_ == 0] = np.Inf
                     res = np.matmul(self.y_l_[self.index_shuffled != i], D_k)/D_k_
                     cost[i,self.number_estimators-m] = mean_squared_error(res, self.y_l_[self.index_shuffled == i])
             cost_ = cost.mean(axis=0)
         else:
-            cost = np.full(self.optimize_params['n_cv'], fill_value = np.float32)
+            cost = np.full(self.optimize_params['n_cv'], fill_value = np.float64)
             for i in range(self.optimize_params['n_cv']):
                 D_k = list_kernels[self.kernel](self.distance_matrix[self.index_shuffled != i,:][:,self.index_shuffled == i], bandwidth)
-                D_k_ = np.sum(D_k, axis=0, dtype=np.float32)
+                D_k_ = np.sum(D_k, axis=0, dtype=np.float64)
                 D_k_[D_k_ == 0] = np.Inf
                 res = np.matmul(self.y_l_[self.index_shuffled != i], D_k)/D_k_
                 cost[i] = mean_squared_error(res, self.y_l_[self.index_shuffled == i])
@@ -321,7 +322,8 @@ class KernelCAMRegressor(BaseEstimator):
                           'biweight' : 'l2',
                           'triweight' : 'l2',
                           'triangular' : 'l1',
-                          'triang' : 'l1'}
+                          'triang' : 'l1',
+                          'cauchy' : 'l2'}
         self.distance_matrix = {}
         self.index_each_fold = {}
         self.distance = kernel_to_dist[self.kernel]
@@ -335,7 +337,7 @@ class KernelCAMRegressor(BaseEstimator):
         if self.optimize_method in ['grid', 'grid_search', 'grid search']:
             n_iter = len(params['bandwidth_list'])
             if self.kernel in ['cobra', 'naive']:
-                errors = np.full((n_iter, self.number_estimators+1), np.float32)
+                errors = np.full((n_iter, self.number_estimators+1), np.float64)
                 if self.show_progress:
                     print('\n\t-> Grid search algorithm with '+ str(self.kernel) + ' kernel is in progress...')
                     print('\t\t~ Full process|--------------------------------------------------|100%')
@@ -503,7 +505,7 @@ class KernelCAMRegressor(BaseEstimator):
         self.test_prediction = res
         return res
         
-    def plot_learning_curve(self, y_test = None,  fig_type = 'qq', save_fig = False, fig_path = None, dpi = None):
+    def plot_learning_curve(self, y_test = None,  fig_type = 'qq', save_fig = False, fig_path = None, dpi = None, show_fig = True):
         if (y_test is not None) and (fig_type in ['qq', 'qq-plot', 'qqplot', 'QQ-plot', 'QQplot']):
             fig = plt.figure(figsize=(7, 3))
             plt.plot(y_test, y_test, 'r')
@@ -513,13 +515,14 @@ class KernelCAMRegressor(BaseEstimator):
             plt.title('QQ-plot: actual Vs prediction')
             plt.legend()
             if save_fig:
-              if dpi is None:
-                dpi = 800
-                if fig_path is not None:
-                  plt.savefig("qqplot_aggregation.png", format = 'png', dpi=dpi, bbox_inches='tight')
-                else:
-                  plt.savefig(fig_path, format = 'png', dpi=dpi, bbox_inches='tight')
-            #plt.show()
+                if dpi is None:
+                    dpi = 800
+                    if fig_path is not None:
+                        plt.savefig("qqplot_aggregation.png", format = 'png', dpi=dpi, bbox_inches='tight')
+                    else:
+                        plt.savefig(fig_path, format = 'png', dpi=dpi, bbox_inches='tight')
+            if show_fig:
+                plt.show()
         else:
             if self.optimize_outputs['opt_method'] == 'grid':
                 if self.kernel in ['naive', 'cobra']:
@@ -537,13 +540,14 @@ class KernelCAMRegressor(BaseEstimator):
                     axs.set_zlabel("Kappa cross-validation error")
                     axs.view_init(30, 60)
                     if save_fig:
-                      if dpi is None:
-                        dpi = 800
-                      if fig_path is None:
-                        plt.savefig("fig_learning_surface.png", format = 'png', dpi=dpi, bbox_inches='tight')
-                      else:
-                        plt.savefig(fig_path, format = 'png', dpi=dpi, bbox_inches='tight')
-                    #plt.show()
+                        if dpi is None:
+                            dpi = 800
+                        if fig_path is None:
+                            plt.savefig("fig_learning_surface.png", format = 'png', dpi=dpi, bbox_inches='tight')
+                        else:
+                            plt.savefig(fig_path, format = 'png', dpi=dpi, bbox_inches='tight')
+                    if show_fig:
+                        plt.show()
                 else:
                     plt.figure(figsize=(7, 3))
                     plt.plot(self.optimize_params['bandwidth_list'], self.optimize_outputs['kappa_cv_errors'])
@@ -554,13 +558,14 @@ class KernelCAMRegressor(BaseEstimator):
                     plt.vlines(x=self.optimize_outputs['opt_bandwidth'], ymin=self.optimize_outputs['kappa_cv_errors'][self.optimize_outputs['opt_index']]/5, ymax=self.optimize_outputs['kappa_cv_errors'][self.optimize_outputs['opt_index']], colors='r', linestyles='--')
                     plt.hlines(y=self.optimize_outputs['kappa_cv_errors'][self.optimize_outputs['opt_index']], xmin=0, xmax=self.optimize_outputs['opt_bandwidth'], colors='r', linestyles='--')
                     if save_fig:
-                      if dpi is None:
-                        dpi = 800
-                      if fig_path is None:
-                        plt.savefig("fig_learning_curve.png", format = 'png', dpi=dpi, bbox_inches='tight')
-                      else:
-                        plt.savefig(fig_path, format = 'png', dpi=dpi, bbox_inches='tight')
-                    #plt.show()
+                        if dpi is None:
+                            dpi = 800
+                        if fig_path is None:
+                            plt.savefig("fig_learning_curve.png", format = 'png', dpi=dpi, bbox_inches='tight')
+                        else:
+                            plt.savefig(fig_path, format = 'png', dpi=dpi, bbox_inches='tight')
+                    if show_fig:
+                        plt.show()
             else:
                 fig = plt.figure(figsize=(10, 3))
                 ax1 = fig.add_subplot(1,2,1)
@@ -582,10 +587,11 @@ class KernelCAMRegressor(BaseEstimator):
                 ax2.vlines(x=self.optimize_outputs['opt_bandwidth'], ymin=opt_error/5, ymax=opt_error, colors='r', linestyles='--')
                 ax2.hlines(y=opt_error, xmin=0, xmax=self.optimize_outputs['opt_bandwidth'], colors='r', linestyles='--')
                 if save_fig:
-                  if dpi is None:
-                    dpi = 800
+                    if dpi is None:
+                        dpi = 800
                     if fig_path is None:
-                      plt.savefig("fig_learning_curve.png", format = 'png', dpi=dpi, bbox_inches='tight')
+                        plt.savefig("fig_learning_curve.png", format = 'png', dpi=dpi, bbox_inches='tight')
                     else:
-                      plt.savefig(fig_path, format = 'png', dpi=dpi, bbox_inches='tight')
-                #plt.show()
+                        plt.savefig(fig_path, format = 'png', dpi=dpi, bbox_inches='tight')
+                if show_fig:
+                    plt.show()
