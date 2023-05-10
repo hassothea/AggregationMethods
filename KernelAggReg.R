@@ -450,7 +450,7 @@ gradOptimizer <- function(obj_fun,
            y = collect_val,
            gradient = gradients) %>%
       ggplot(aes(x = x, y = y)) +
-      geom_line(mapping = aes(color = gradient), size = 1) +
+      geom_line(mapping = aes(color = gradient), linewidth = 1) +
       geom_point(aes(x = length(x), y = opt_ep), color = "red") +
       geom_hline(yintercept = opt_ep, color = "red", linetype = "longdash") +
       labs(title = "Gradient steps",
@@ -516,7 +516,7 @@ gridOptimizer <- function(obj_func,
     tibble(x = param, 
            y = risk) %>%
       ggplot(aes(x = x, y = y)) +
-      geom_line(color = "skyblue", size = 0.75) +
+      geom_line(color = "skyblue", linewidth = 0.75) +
       geom_point(aes(x = opt_ep, y = opt_risk), color = "red") +
       geom_vline(xintercept = opt_ep, color = "red", linetype = "longdash") +
       labs(title = "Error as function of parameter", 
