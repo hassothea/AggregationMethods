@@ -1,0 +1,80 @@
+---
+title: "Example"
+author: "Sothea HAS"
+date: "2023-06-22"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+
+if(!('pacman' %in% installed.packages()[,1])){
+  install.packages('pacman')
+}
+
+pacman::p_load(MASS)
+pacman::p_load(devtools)
+```
+
+## Loading the source codes with `devtools`
+
+```{r}
+devtools::source_url("https://raw.githubusercontent.com/hassothea/AggregationMethods/main/KernelAggReg.R")
+```
+
+
+### 1. Boston housing
+
+```{r}
+Boston |> head()
+
+X <- Boston[c("crim", "indus", "nox", "rm", "age", "dis", "rad", "tax", "ptratio", "black", "lstat")]
+y <- Boston$medv
+n <- length(y)
+train <- logical(length = n)
+train[sample(n, floor(0.8*n))] <- TRUE
+```
+
+Using the aggregation method:
+
+```{r}
+reg <- kernelAggReg(train_design = X[train,],
+                    train_response = y[train],
+                    test_design = X[!train,])
+```
+
+
+```{r}
+# Relative Root Mean Squared Error
+reg$fitted_aggregate |> map(.f = ~ sqrt(mean((y[!train] - .x)^2))/mean(y[!train]))
+```
+
+You can also use more than one kernel function at a time, with other options of basic estimators and learning process as follow:
+
+
+```{r}
+reg1 <- kernelAggReg(train_design = X[train,],
+                    train_response = y[train],
+                    test_design = X[!train,],
+                    kernels = c('naive', 'gaussian'),
+                    optimizeMethod = c("grid", "grad"),
+                    machines = c('knn', 'rf', 'xgb', 'ridge', 'lasso'),
+                    setBasicMachineParam = setBasicParameter(k = 5:10,
+                                                             ntree = 300,
+                                                             nrounds_xgb = c(300, 500)),
+                    setGradParam = setGradParameter(rate = 0.01),
+                    setGridParam = setGridParameter(figure = FALSE))
+```
+
+
+```{r}
+# Relative Root Mean Squared Error
+reg1$fitted_aggregate |> map(.f = ~ sqrt(mean((y[!train] - .x)^2))/mean(y[!train]))
+```
+
+
+For how to you the function, see: [https://hassothea.github.io/files/CodesPhD/KernelAggReg.html](https://hassothea.github.io/files/CodesPhD/KernelAggReg.html).
