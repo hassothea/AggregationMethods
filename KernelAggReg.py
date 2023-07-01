@@ -19,7 +19,7 @@ import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator
 
-class KernelCAMRegressor(BaseEstimator):
+class GradientCOBRARegressor(BaseEstimator):
     def __init__(self, 
                 random_state = None, 
                 kernel = 'radial', 
