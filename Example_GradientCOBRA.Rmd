@@ -23,7 +23,7 @@ pacman::p_load(devtools)
 ## Loading the source codes with `devtools`
 
 ```{r}
-devtools::source_url("https://raw.githubusercontent.com/hassothea/AggregationMethods/main/KernelAggReg.R")
+devtools::source_url("https://raw.githubusercontent.com/hassothea/AggregationMethods/main/GradientCOBRARegressor.R")
 ```
 
 
@@ -42,7 +42,7 @@ train[sample(n, floor(0.8*n))] <- TRUE
 Using the aggregation method:
 
 ```{r}
-reg <- kernelAggReg(train_design = X[train,],
+reg <- GradientCOBRARegressor(train_design = X[train,],
                     train_response = y[train],
                     test_design = X[!train,])
 ```
@@ -57,7 +57,7 @@ You can also use more than one kernel function at a time, with other options of 
 
 
 ```{r}
-reg1 <- kernelAggReg(train_design = X[train,],
+reg1 <- GradientCOBRARegressor(train_design = X[train,],
                     train_response = y[train],
                     test_design = X[!train,],
                     kernels = c('naive', 'gaussian'),
@@ -77,4 +77,4 @@ reg1$fitted_aggregate |> map(.f = ~ sqrt(mean((y[!train] - .x)^2))/mean(y[!train
 ```
 
 
-For how to you the function, see: [https://hassothea.github.io/files/CodesPhD/KernelAggReg.html](https://hassothea.github.io/files/CodesPhD/KernelAggReg.html).
+For how to you the function, see: [https://hassothea.github.io/files/CodesPhD/GradientCOBRARegressor.html](https://hassothea.github.io/files/CodesPhD/GradientCOBRARegressor.html).
