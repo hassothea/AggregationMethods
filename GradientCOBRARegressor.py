@@ -83,7 +83,7 @@ class GradientCOBRARegressor(BaseEstimator):
                      'speed' : 'constant',
                      'n_tries' : int(5),
                      'start' : None,
-                     'max_iter' : 300,
+                     'max_iter' : 50,
                     'n_cv' : int(5)}
         
         kernel_param = {
