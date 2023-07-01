@@ -409,6 +409,7 @@ class GradientCOBRARegressor(BaseEstimator):
             gradients = []
             speed_list = {
                 'constant' : lambda x, y: y,
+                'linear' : lambda x, y: x*y,
                 'log' : lambda x, y: np.log(1+x) * y,
                 'root' : lambda x, y: np.sqrt(1+x) * y,
                 'sqrt' : lambda x, y: (1+x ** 2) * y,
