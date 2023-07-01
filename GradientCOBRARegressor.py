@@ -80,7 +80,7 @@ class GradientCOBRARegressor(BaseEstimator):
         opt_param = {'bandwidth_list' : np.linspace(0.00001, 100, 300),
                      'epsilon' : 10 ** (-10),
                      'learning_rate' : 0.1,
-                     'speed' : 'constant',
+                     'speed' : 'linear',
                      'n_tries' : int(5),
                      'start' : None,
                      'max_iter' : 50,
