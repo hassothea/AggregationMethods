@@ -2,6 +2,14 @@
 
 This repository contains all the source codes of consensual aggregation methods implemented in `R` and `python`. All codes contained in each file are built with recent version of `R` software (version $>$ 4.1, available [here](https://cran.r-project.org/bin/windows/base/)) and `Rstudio` (version > `2022.02.2+485`, available [here](https://www.rstudio.com/products/rstudio/download/#download)).
 
+## Alternative
+
+The aggregation methods implemented here are now available in `gradientcobra` Python library. The library can be installed by:
+
+    `pip install gradientcobra`
+
+For more information, see the library: [https://pypi.org/project/gradientcobra/](https://pypi.org/project/gradientcobra/).
+
 ---
 
 ## &#128270; How to download & run the codes in R?
